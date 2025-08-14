@@ -2,16 +2,31 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Admin'"
       th:replace="~{fragments/_layout :: layout(~{::content})}">
 <th:block th:fragment="content">
-<div class="hero">
+    <div class="hero">
         <h1>Admin Panel</h1>
-        <p class="muted">Manual controls for testing and management</p>
+        <p class="muted">Enhanced controls for rapid channel discovery and management</p>
     </div>
 
-    <div style="display: grid; gap: 2rem; max-width: 800px;">
+    <div style="display: grid; gap: 2rem; max-width: 1000px;">
+
+        <!-- Quick Start Section -->
+        <section style="border: 2px solid #28a745; padding: 1.5rem; border-radius: 8px; background: rgba(40, 167, 69, 0.05);">
+            <h3>🚀 Quick Start (Recommended Order)</h3>
+            <p class="muted">Follow this sequence to rapidly populate your database</p>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <button onclick="seedPopular()" style="background: #28a745;">1. Seed Popular Channels</button>
+                <button onclick="massDiscovery()" style="background: #007bff;">2. Mass Discovery</button>
+                <button onclick="batchSnapshot()" style="background: #6f42c1;">3. Batch Snapshot</button>
+                <button onclick="getStats()" style="background: #17a2b8;">4. Check Progress</button>
+            </div>
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px; font-size: 0.9rem;">
+                <strong>Expected Result:</strong> 1000+ channels with real subscriber data in ~15 minutes
+            </div>
+        </section>
 
         <!-- Ingest new channel -->
         <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-            <h3>Add New Channel</h3>
+            <h3>➕ Add Individual Channel</h3>
             <form id="ingestForm" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
                 <select name="platform" required>
                     <option value="YOUTUBE">YouTube</option>
@@ -23,51 +38,98 @@
             <div id="ingestResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
         </section>
 
-        <!-- Channel Discovery -->
-        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-            <h3>Smart Channel Discovery</h3>
-            <p class="muted">Automated system that discovers channels daily across different niches</p>
-            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
-                <button onclick="seedPopular()">Seed Popular Channels</button>
-                <button onclick="discoverNow()">Run Discovery Now</button>
-                <button onclick="getStats()">View Discovery Stats</button>
+        <!-- Enhanced Discovery Methods -->
+        <section style="border: 1px solid #007bff; padding: 1.5rem; border-radius: 8px;">
+            <h3>🔍 Advanced Discovery Methods</h3>
+            <p class="muted">Multiple strategies to rapidly find and add channels</p>
+
+            <!-- Primary Discovery Actions -->
+            <div style="margin: 1rem 0;">
+                <h4>Primary Discovery</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.5rem;">
+                    <button onclick="massDiscovery()" style="background: #007bff;">🚀 Mass Discovery</button>
+                    <button onclick="seedPopular()" style="background: #28a745;">⭐ Seed Popular</button>
+                    <button onclick="discoverTrending()" style="background: #fd7e14;">🔥 Trending Discovery</button>
+                    <button onclick="discoverRelated()" style="background: #6f42c1;">🔗 Related Discovery</button>
+                </div>
             </div>
-            <div style="margin-top: 1rem;">
-                <form onsubmit="discoverChannels(event)" style="display: flex; gap: 0.5rem;">
-                    <input name="searchTerm" placeholder="tech reviews" required/>
-                    <button type="submit">Manual Discovery</button>
+
+            <!-- Legacy Discovery -->
+            <div style="margin: 1rem 0;">
+                <h4>Manual Discovery</h4>
+                <div style="display: flex; gap: 1rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                    <button onclick="discoverNow()">🎯 Run Discovery Now</button>
+                    <button onclick="getStats()">📊 View Stats</button>
+                </div>
+            </div>
+
+            <!-- Search-based Discovery -->
+            <div style="margin: 1rem 0;">
+                <h4>Search-Based Discovery</h4>
+                <form onsubmit="discoverChannels(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input name="searchTerm" placeholder="tech reviews, gaming, cooking..." required style="flex: 1;"/>
+                    <button type="submit">🔍 Discover by Search</button>
                 </form>
+                <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <small style="color: #666;">Quick searches:</small>
+                    <button onclick="quickDiscover('tech review')" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">Tech</button>
+                    <button onclick="quickDiscover('gaming')" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">Gaming</button>
+                    <button onclick="quickDiscover('cooking')" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">Cooking</button>
+                    <button onclick="quickDiscover('fitness')" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">Fitness</button>
+                    <button onclick="quickDiscover('music')" style="font-size: 0.8rem; padding: 0.3rem 0.6rem;">Music</button>
+                </div>
             </div>
+
             <div id="discoveryResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
 
-            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
-                <h4 style="margin: 0 0 0.5rem 0;">How It Works:</h4>
-                <ul style="margin: 0; font-size: 0.9rem;">
-                    <li><strong>Daily Automated Discovery:</strong> Runs at 3 AM UTC, discovers 20 channels per day</li>
-                    <li><strong>Smart Niche Coverage:</strong> Cycles through tech, gaming, education, entertainment, etc.</li>
-                    <li><strong>Opportunistic Discovery:</strong> When users search for channels we don't have</li>
-                    <li><strong>Legal & Respectful:</strong> Uses official YouTube API with proper rate limiting</li>
+            <!-- Discovery Info -->
+            <div style="margin-top: 1rem; padding: 1rem; background: #e3f2fd; border-radius: 4px;">
+                <h4 style="margin: 0 0 0.5rem 0; color: #1565c0;">How Enhanced Discovery Works:</h4>
+                <ul style="margin: 0; font-size: 0.9rem; color: #1565c0;">
+                    <li><strong>Mass Discovery:</strong> Runs all methods - can add 500-1000 channels in one session</li>
+                    <li><strong>Trending Discovery:</strong> Finds viral/popular channels using trending search terms</li>
+                    <li><strong>Related Discovery:</strong> Uses existing channels to find similar content creators</li>
+                    <li><strong>Auto Mode:</strong> Rapid discovery every 15min until 1000 channels, then daily</li>
                 </ul>
             </div>
         </section>
-        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-            <h3>Take Snapshots</h3>
-            <p class="muted">Fetch current stats for channels</p>
-            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                <button onclick="snapshotAll()">Snapshot All Channels</button>
-                <button onclick="listChannels()">List All Channels</button>
-                <button onclick="cleanupDuplicates()">Cleanup Duplicates</button>
-                <button onclick="debugDb()">Debug Database</button>
+
+        <!-- Data Management -->
+        <section style="border: 1px solid #6f42c1; padding: 1.5rem; border-radius: 8px;">
+            <h3>📊 Data Management & Snapshots</h3>
+            <p class="muted">Update channel statistics and maintain data quality</p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                <button onclick="batchSnapshot()">📸 Batch Snapshot</button>
+                <button onclick="snapshotAll()">📸 Snapshot All</button>
+                <button onclick="listChannels()">📋 List Channels</button>
+                <button onclick="healthCheck()">🏥 Health Check</button>
+                <button onclick="systemStatus()">🖥️ System Status</button>
+                <button onclick="cleanupDuplicates()">🧹 Cleanup</button>
+                <button onclick="debugDb()">🔧 Debug DB</button>
             </div>
+
             <div id="snapshotResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
         </section>
 
+        <!-- System Information -->
+        <section style="border: 1px solid #17a2b8; padding: 1.5rem; border-radius: 8px;">
+            <h3>ℹ️ System Information</h3>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <button onclick="getStats()">📊 Discovery Stats</button>
+                <button onclick="healthCheck()">🏥 Health Check</button>
+                <button onclick="systemStatus()">🖥️ System Status</button>
+            </div>
+        </section>
+
         <!-- Quick links -->
-        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
-            <h3>Quick Links</h3>
-            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-                <a href="/leaderboard" class="button">View Leaderboard</a>
-                <a href="/" class="button">Home</a>
+        <section style="border: 1px solid #28a745; padding: 1.5rem; border-radius: 8px;">
+            <h3>🔗 Quick Navigation</h3>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <a href="/leaderboard" class="button" style="background: #28a745;">📈 View Leaderboard</a>
+                <a href="/" class="button" style="background: #17a2b8;">🏠 Home</a>
+                <a href="/leaderboard?platform=YOUTUBE" class="button">📺 YouTube Leaderboard</a>
+                <a href="/leaderboard?platform=TWITCH" class="button">🎮 Twitch Leaderboard</a>
             </div>
         </section>
     </div>
@@ -91,9 +153,76 @@
             }
         });
 
-        // Snapshot all channels
+        // Discovery functions
+        async function seedPopular() {
+            try {
+                showResult('discoveryResult', '🌱 Seeding popular channels... this will add ~50 high-quality channels.', true);
+                const response = await fetch('/admin/seed-popular', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function massDiscovery() {
+            try {
+                showResult('discoveryResult', '🚀 Running mass discovery... this may take 10-15 minutes and add 500-1000 channels!', true);
+                const response = await fetch('/admin/mass-discovery', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function discoverTrending() {
+            try {
+                showResult('discoveryResult', '🔥 Discovering trending channels...', true);
+                const response = await fetch('/admin/discover-trending', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function discoverRelated() {
+            try {
+                showResult('discoveryResult', '🔗 Discovering related channels...', true);
+                const response = await fetch('/admin/discover-related', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function discoverNow() {
+            try {
+                showResult('discoveryResult', '🎯 Running discovery...', true);
+                const response = await fetch('/admin/discover-now', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function batchSnapshot() {
+            try {
+                showResult('snapshotResult', '📸 Running batch snapshot... updating channel statistics.', true);
+                const response = await fetch('/admin/batch-snapshot', { method: 'POST' });
+                const result = await response.text();
+                showResult('snapshotResult', result, response.ok);
+            } catch (error) {
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            }
+        }
+
         async function snapshotAll() {
             try {
+                showResult('snapshotResult', '📸 Snapshotting all channels... this may take a while.', true);
                 const response = await fetch('/admin/snapshot-all', { method: 'POST' });
                 const result = await response.text();
                 showResult('snapshotResult', result, response.ok);
@@ -102,7 +231,6 @@
             }
         }
 
-        // List channels
         async function listChannels() {
             try {
                 const response = await fetch('/admin/channels');
@@ -113,31 +241,47 @@
             }
         }
 
-        // Seed popular channels
-        async function seedPopular() {
+        async function healthCheck() {
             try {
-                showResult('discoveryResult', 'Seeding channels... this may take a few minutes.', true);
-                const response = await fetch('/admin/seed-popular', { method: 'POST' });
+                const response = await fetch('/admin/health-check');
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('snapshotResult', result, response.ok);
             } catch (error) {
-                showResult('discoveryResult', 'Error: ' + error.message, false);
+                showResult('snapshotResult', 'Error: ' + error.message, false);
             }
         }
 
-        // Run discovery now
-        async function discoverNow() {
+        async function systemStatus() {
             try {
-                showResult('discoveryResult', 'Running discovery... finding new channels.', true);
-                const response = await fetch('/admin/discover-now', { method: 'POST' });
+                const response = await fetch('/admin/system-status');
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('snapshotResult', result, response.ok);
             } catch (error) {
-                showResult('discoveryResult', 'Error: ' + error.message, false);
+                showResult('snapshotResult', 'Error: ' + error.message, false);
             }
         }
 
-        // Get discovery stats
+        async function cleanupDuplicates() {
+            try {
+                showResult('snapshotResult', '🧹 Cleaning up duplicates...', true);
+                const response = await fetch('/admin/cleanup-duplicates', { method: 'POST' });
+                const result = await response.text();
+                showResult('snapshotResult', result, response.ok);
+            } catch (error) {
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        async function debugDb() {
+            try {
+                const response = await fetch('/admin/debug-db');
+                const result = await response.text();
+                showResult('snapshotResult', result, response.ok);
+            } catch (error) {
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            }
+        }
+
         async function getStats() {
             try {
                 const response = await fetch('/admin/discovery-stats');
@@ -155,8 +299,22 @@
             const searchTerm = formData.get('searchTerm');
 
             try {
-                showResult('discoveryResult', `Discovering channels for "${searchTerm}"...`, true);
+                showResult('discoveryResult', `🔍 Discovering channels for "${searchTerm}"...`, true);
                 const response = await fetch(`/admin/discover?searchTerm=${encodeURIComponent(searchTerm)}`, {
+                    method: 'POST'
+                });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Quick discover function for preset terms
+        async function quickDiscover(term) {
+            try {
+                showResult('discoveryResult', `🔍 Quick discovering "${term}" channels...`, true);
+                const response = await fetch(`/admin/discover?searchTerm=${encodeURIComponent(term)}`, {
                     method: 'POST'
                 });
                 const result = await response.text();
@@ -169,12 +327,15 @@
         // Show result helper
         function showResult(elementId, message, isSuccess) {
             const element = document.getElementById(elementId);
-            element.textContent = message;
+            element.innerHTML = message.replace(/\n/g, '<br>'); // Convert newlines to <br>
             element.style.display = 'block';
             element.style.backgroundColor = isSuccess ? '#d4edda' : '#f8d7da';
             element.style.color = isSuccess ? '#155724' : '#721c24';
             element.style.border = `1px solid ${isSuccess ? '#c3e6cb' : '#f5c6cb'}`;
             element.style.borderRadius = '4px';
+            element.style.fontFamily = 'monospace';
+            element.style.fontSize = '0.9rem';
+            element.style.whiteSpace = 'pre-line';
         }
     </script>
 </th:block>
