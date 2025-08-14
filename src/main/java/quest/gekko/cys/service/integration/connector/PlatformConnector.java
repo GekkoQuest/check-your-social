@@ -1,4 +1,4 @@
-package quest.gekko.cys.service.connector;
+package quest.gekko.cys.service.integration.connector;
 
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;

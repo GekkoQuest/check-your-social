@@ -1,12 +1,14 @@
-package quest.gekko.cys.service;
+package quest.gekko.cys.service.scheduling;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import quest.gekko.cys.domain.Channel;
-import quest.gekko.cys.repo.ChannelRepo;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.repository.ChannelRepository;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
+import quest.gekko.cys.service.core.RankingService;
+import quest.gekko.cys.service.core.StatsService;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -16,7 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class IngestionScheduler {
     private final List<PlatformConnector> connectors;
-    private final ChannelRepo channelRepo;
+    private final ChannelRepository channelRepository;
     private final StatsService statsService;
     private final RankingService rankingService;
 
@@ -26,7 +28,7 @@ public class IngestionScheduler {
     public void runDailySnapshot() {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         for (PlatformConnector pc : connectors) {
-            var channels = channelRepo.findAll().stream()
+            var channels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform()==pc.platform()).toList();
             for (Channel c : channels) {
                 var counters = pc.fetchCounters(c.getPlatformId());

@@ -1,4 +1,4 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -6,9 +6,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.dto.ChannelWithLatestStat;
-import quest.gekko.cys.repo.ChannelRepo;
-import quest.gekko.cys.repo.DailyStatRepo;
+import quest.gekko.cys.web.dto.ChannelWithLatestStat;
+import quest.gekko.cys.repository.ChannelRepository;
+import quest.gekko.cys.repository.DailyStatRepository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -17,8 +17,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class HomeController {
 
-    private final ChannelRepo channelRepo;
-    private final DailyStatRepo statRepo;
+    private final ChannelRepository channelRepository;
+    private final DailyStatRepository statRepo;
 
     @GetMapping("/")
     public String home(Model model) {
@@ -28,10 +28,10 @@ public class HomeController {
         // Get statistics for the homepage
         try {
             // Total channels
-            long totalChannels = channelRepo.count();
+            long totalChannels = channelRepository.count();
 
             // YouTube vs Twitch breakdown
-            long youtubeChannels = channelRepo.findAll().stream()
+            long youtubeChannels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.YOUTUBE)
                     .count();
             long twitchChannels = totalChannels - youtubeChannels;
@@ -41,11 +41,13 @@ public class HomeController {
                     .filter(s -> s.getSnapshotDate().isAfter(LocalDate.now().minusDays(7)))
                     .count();
 
+            LocalDate cutoffDate = LocalDate.now().minusDays(7);
+
             // Top YouTube channels (limit 8 for homepage)
-            var topYouTubeChannels = channelRepo.leaderboard("YOUTUBE", PageRequest.of(0, 8));
+            var topYouTubeChannels = channelRepository.leaderboard("YOUTUBE", cutoffDate, PageRequest.of(0, 8));
 
             // Top Twitch channels (limit 8 for homepage)
-            var topTwitchChannels = channelRepo.leaderboard("TWITCH", PageRequest.of(0, 8));
+            var topTwitchChannels = channelRepository.leaderboard("TWITCH", cutoffDate, PageRequest.of(0, 8));
 
             // Add to model
             model.addAttribute("totalChannels", totalChannels);

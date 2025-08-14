@@ -1,4 +1,4 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -6,11 +6,10 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.repo.DailyStatRepo;
-import quest.gekko.cys.service.ChannelService;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.service.core.ChannelService;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
 
 import java.util.List;
 
@@ -18,7 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ChannelController {
     private final ChannelService channelService;
-    private final DailyStatRepo statRepo;
+    private final DailyStatRepository statRepo;
     private final List<PlatformConnector> connectors;
 
     // Fixed URL mapping to match what templates generate

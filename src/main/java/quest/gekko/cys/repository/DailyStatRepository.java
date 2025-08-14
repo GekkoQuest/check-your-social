@@ -1,4 +1,4 @@
-package quest.gekko.cys.repo;
+package quest.gekko.cys.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,7 +9,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
-public interface DailyStatRepo extends JpaRepository<DailyStat, Long> {
+public interface DailyStatRepository extends JpaRepository<DailyStat, Long> {
     List<DailyStat> findByChannelIdOrderBySnapshotDateAsc(Long channelId);
     Optional<DailyStat> findTopByChannelIdOrderBySnapshotDateDesc(Long channelId);
 

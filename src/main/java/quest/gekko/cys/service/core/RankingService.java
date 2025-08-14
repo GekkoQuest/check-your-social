@@ -1,4 +1,4 @@
-package quest.gekko.cys.service;
+package quest.gekko.cys.service.core;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -6,8 +6,8 @@ import org.springframework.transaction.annotation.Transactional;
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.domain.RankSnapshot;
-import quest.gekko.cys.repo.DailyStatRepo;
-import quest.gekko.cys.repo.RankSnapshotRepo;
+import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.repository.RankSnapshotRepository;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -15,8 +15,8 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class RankingService {
-    private final DailyStatRepo statRepo;
-    private final RankSnapshotRepo rankRepo;
+    private final DailyStatRepository statRepo;
+    private final RankSnapshotRepository rankRepo;
 
     @Transactional
     public void computeDailyRanks(LocalDate date, Platform platform) {

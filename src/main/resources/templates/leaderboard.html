@@ -2,92 +2,108 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Leaderboard'"
       th:replace="~{fragments/_layout :: layout(~{::content})}">
 <th:block th:fragment="content">
-<div th:with="p=${results != null ? results : page}">
-<div class="hero">
-        <div>
-            <h1 th:if="${q != null}">Search results</h1>
-            <h1 th:if="${q == null}">Leaderboard</h1>
-            <p class="muted" th:if="${q != null}">
-                for <strong th:text="${q}">query</strong>
-            </p>
-            <p class="muted" th:if="${q == null and platform != null}"
-               th:text="${platform.name() + ' channels ranked by ' + (platform.name() == 'YOUTUBE' ? 'subscribers' : 'followers')}">
-                YouTube channels ranked by subscribers
-            </p>
+    <!-- Normalize inputs: p may be a Page or a List -->
+    <div th:with="
+        p=${results != null ? results : page},
+        pageObj=${p instanceof T(org.springframework.data.domain.Page) ? p : null},
+        items=${pageObj != null ? pageObj.content : (p != null ? p : #lists.list())},
+        startIndex=${pageObj != null ? pageObj.number * pageObj.size : 0},
+        isYoutube=${platform != null and platform.name() == 'YOUTUBE'}
+      ">
+
+        <div class="hero">
+            <div>
+                <h1 th:if="${q != null}">Search results</h1>
+                <h1 th:if="${q == null}">Leaderboard</h1>
+                <p class="muted" th:if="${q != null}">
+                    for <strong th:text="${q}">query</strong>
+                </p>
+                <p class="muted" th:if="${q == null and platform != null}"
+                   th:text="${platform.name() + ' channels ranked by ' + (platform.name() == 'YOUTUBE' ? 'subscribers' : 'followers')}">
+                    YouTube channels ranked by subscribers
+                </p>
+            </div>
         </div>
-    </div>
 
-    <!-- Error message if any -->
-    <div th:if="${error != null}" class="alert alert-danger" th:text="${error}">Error message</div>
+        <!-- Error message if any -->
+        <div th:if="${error != null}" class="alert alert-danger" th:text="${error}">Error message</div>
 
-    <!-- Handle different data sources -->
-    <th:block th:with="
-        isYoutube=${platform != null and platform.name() == 'YOUTUBE'},
-        items=${p != null ? p.content : {}}">
-        <!-- Handle different data sources - simplified approach -->
-        <th:block th:with="isYoutube=${platform != null and platform.name() == 'YOUTUBE'}">
-
-            <!-- Determine which data to show -->
-            <div th:if="${p != null and p.hasContent()}">
-                <table class="table">
-                    <thead>
-                    <tr>
-                        <th style="width:64px;">#</th>
-                        <th>Channel</th>
-                        <th th:text="${isYoutube ? 'Subscribers' : 'Followers'}">Subscribers</th>
-                        <th>Views</th>
-                        <th>Videos</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    <tr th:each="c,iter : ${p.content}">
-                        <td th:text="${iter.index + 1}">1</td>
-                        <td>
-                            <div style="display:flex; gap:.75rem; align-items:center;">
-                                <img th:if="${c.avatarUrl != null}" th:src="${c.avatarUrl}" alt="avatar" class="avatar-sm"/>
-                                <div>
-                                    <a th:href="@{/channel/{id}(id=${c.id})}" th:text="${c.title}">Channel Title</a>
-                                    <div class="muted" th:text="${c.handle}">@handle</div>
-                                </div>
+        <!-- Results table -->
+        <div th:if="${!#lists.isEmpty(items)}">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th style="width:64px;">#</th>
+                    <th>Channel</th>
+                    <th th:text="${isYoutube ? 'Subscribers' : 'Followers'}">Subscribers</th>
+                    <th>Views</th>
+                    <th>Videos</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="c, iter : ${items}">
+                    <td th:text="${startIndex + iter.index + 1}">1</td>
+                    <td>
+                        <div style="display:flex; gap:.75rem; align-items:center;">
+                            <img th:if="${c.avatarUrl != null}" th:src="${c.avatarUrl}" alt="avatar" class="avatar-sm"/>
+                            <div>
+                                <a th:href="@{/channel/{id}(id=${c.id})}" th:text="${c.title}">Channel Title</a>
+                                <div class="muted" th:text="${c.handle}">@handle</div>
                             </div>
-                        </td>
-                        <td th:text="${isYoutube ? (c.subscribers != null ? #numbers.formatInteger(c.subscribers, 0, 'COMMA') : 0) : (c.followers != null ? #numbers.formatInteger(c.followers, 0, 'COMMA') : 0)}">0</td>
-                        <td th:text="${c.views != null ? #numbers.formatInteger(c.views, 0, 'COMMA') : 0}">0</td>
-                        <td th:text="${c.videos != null ? #numbers.formatInteger(c.videos, 0, 'COMMA') : 0}">0</td>
-                    </tr>
-                    </tbody>
-                </table>
-            </div>
+                        </div>
+                    </td>
+                    <td th:text="${
+                isYoutube
+                  ? (c.subscribers != null ? #numbers.formatInteger(c.subscribers, 0, 'COMMA') : 0)
+                  : (c.followers   != null ? #numbers.formatInteger(c.followers,   0, 'COMMA') : 0)
+              }">0</td>
+                    <td th:text="${c.views  != null ? #numbers.formatInteger(c.views,  0, 'COMMA') : 0}">0</td>
+                    <td th:text="${c.videos != null ? #numbers.formatInteger(c.videos, 0, 'COMMA') : 0}">0</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
 
-            <div th:if="${p == null or !p.hasContent()}" class="muted" style="margin:.5rem 0 1rem;">
-                No results found.
-            </div>
+        <!-- Empty state -->
+        <div th:if="${#lists.isEmpty(items)}" class="muted" style="margin:.5rem 0 1rem;">
+            No results found.
+        </div>
 
-            
-            <!-- Unified Pagination -->
-            <nav th:if="${p != null and p.totalPages > 1}" style="margin-top:1rem;">
-                <ul class="pagination">
-                    <li class="page-item" th:classappend="${p.first} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="${q != null} ? @{/search(platform=${platform}, q=${q}, page=${p.number - 1}, size=${p.size})}
-                                                 : @{/leaderboard(platform=${platform}, page=${p.number - 1}, size=${p.size})}">Prev</a>
-                    </li>
-                    <li class="page-item"
-                        th:each="i : ${#numbers.sequence(0, p.totalPages - 1)}"
-                        th:classappend="${i == p.number} ? 'active'">
-                        <a class="page-link"
-                           th:text="${i + 1}"
-                           th:href="${q != null} ? @{/search(platform=${platform}, q=${q}, page=${i}, size=${p.size})}
-                                                 : @{/leaderboard(platform=${platform}, page=${i}, size=${p.size})}">1</a>
-                    </li>
-                    <li class="page-item" th:classappend="${p.last} ? 'disabled'">
-                        <a class="page-link"
-                           th:href="${q != null} ? @{/search(platform=${platform}, q=${q}, page=${p.number + 1}, size=${p.size})}
-                                                 : @{/leaderboard(platform=${platform}, page=${p.number + 1}, size=${p.size})}">Next</a>
-                    </li>
-                </ul>
-            </nav>
-    
-</div>
+        <!-- Pagination: only when we truly have a Page -->
+        <nav th:if="${pageObj != null and pageObj.totalPages > 1}" style="margin-top:1rem;">
+            <ul class="pagination">
+                <li class="page-item" th:classappend="${pageObj.first} ? 'disabled'">
+                    <a class="page-link"
+                       th:href="${q != null}
+                        ? @{/search(platform=${platform}, q=${q}, page=${pageObj.number - 1}, size=${pageObj.size})}
+                        : @{/leaderboard(platform=${platform}, page=${pageObj.number - 1}, size=${pageObj.size})}">
+                        Prev
+                    </a>
+                </li>
+
+                <li class="page-item"
+                    th:each="i : ${#numbers.sequence(0, pageObj.totalPages - 1)}"
+                    th:classappend="${i == pageObj.number} ? 'active'">
+                    <a class="page-link"
+                       th:text="${i + 1}"
+                       th:href="${q != null}
+                        ? @{/search(platform=${platform}, q=${q}, page=${i}, size=${pageObj.size})}
+                        : @{/leaderboard(platform=${platform}, page=${i}, size=${pageObj.size})}">
+                        1
+                    </a>
+                </li>
+
+                <li class="page-item" th:classappend="${pageObj.last} ? 'disabled'">
+                    <a class="page-link"
+                       th:href="${q != null}
+                        ? @{/search(platform=${platform}, q=${q}, page=${pageObj.number + 1}, size=${pageObj.size})}
+                        : @{/leaderboard(platform=${platform}, page=${pageObj.number + 1}, size=${pageObj.size})}">
+                        Next
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+    </div>
 </th:block>
 </html>

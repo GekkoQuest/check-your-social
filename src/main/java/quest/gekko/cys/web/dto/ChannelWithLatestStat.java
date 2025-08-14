@@ -1,4 +1,4 @@
-package quest.gekko.cys.dto;
+package quest.gekko.cys.web.dto;
 
 import quest.gekko.cys.domain.Platform;
 

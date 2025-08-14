@@ -1,9 +1,10 @@
-package quest.gekko.cys.service;
+package quest.gekko.cys.service.discovery;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
+import quest.gekko.cys.service.core.ChannelService;
 
 import java.util.List;
 import java.util.Map;

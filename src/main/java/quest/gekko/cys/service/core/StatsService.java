@@ -1,11 +1,11 @@
-package quest.gekko.cys.service;
+package quest.gekko.cys.service.core;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.DailyStat;
-import quest.gekko.cys.repo.DailyStatRepo;
+import quest.gekko.cys.repository.DailyStatRepository;
 
 import java.time.LocalDate;
 import java.util.Map;
@@ -13,7 +13,7 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class StatsService {
-    private final DailyStatRepo statRepo;
+    private final DailyStatRepository statRepo;
 
     @Transactional
     public DailyStat snapshot(final Channel channel, final Map<String, Long> counters, final LocalDate date) {

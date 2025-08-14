@@ -1,4 +1,4 @@
-package quest.gekko.cys.service;
+package quest.gekko.cys.service.discovery;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,9 +7,11 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.repo.ChannelRepo;
-import quest.gekko.cys.repo.DailyStatRepo;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.repository.ChannelRepository;
+import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
+import quest.gekko.cys.service.core.ChannelService;
+import quest.gekko.cys.service.core.StatsService;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -24,8 +26,8 @@ public class SmartDiscoveryService {
 
     private final Map<Platform, PlatformConnector> connectorsByPlatform;
     private final ChannelService channelService;
-    private final ChannelRepo channelRepo;
-    private final DailyStatRepo statRepo;
+    private final ChannelRepository channelRepository;
+    private final DailyStatRepository statRepo;
     private final StatsService statsService;
 
     // Massively expanded discovery queries for rapid population
@@ -136,7 +138,7 @@ public class SmartDiscoveryService {
     }
 
     private boolean shouldRunRapidMode() {
-        long totalChannels = channelRepo.count();
+        long totalChannels = channelRepository.count();
         // Run rapid mode until we have at least 1000 channels
         return totalChannels < 1000;
     }
@@ -185,7 +187,7 @@ public class SmartDiscoveryService {
                             .mapToInt(f -> f.join())
                             .sum();
                     log.info("✅ Rapid discovery completed. Discovered {} new channels. Total channels: {}",
-                            totalDiscovered, channelRepo.count());
+                            totalDiscovered, channelRepository.count());
                 })
                 .join();
     }
@@ -337,7 +339,7 @@ public class SmartDiscoveryService {
 
     public void discoverRelatedChannels() {
         // Get a sample of existing channels and search for related content
-        List<Channel> existingChannels = channelRepo.findAll().stream()
+        List<Channel> existingChannels = channelRepository.findAll().stream()
                 .limit(30)
                 .collect(Collectors.toList());
 
@@ -404,7 +406,7 @@ public class SmartDiscoveryService {
             int discovered = 0;
 
             for (var channel : channels) {
-                var existing = channelRepo.findByPlatformAndPlatformId(
+                var existing = channelRepository.findByPlatformAndPlatformId(
                         channel.getPlatform(),
                         channel.getPlatformId()
                 );
@@ -465,7 +467,7 @@ public class SmartDiscoveryService {
             // Wait for all to complete
             CompletableFuture.allOf(seedFuture, trendingFuture, parallelFuture, relatedFuture).join();
 
-            long total = channelRepo.count();
+            long total = channelRepository.count();
             String result = "✅ Mass discovery completed! Total channels: " + total;
             log.info(result);
             return result;
@@ -486,7 +488,7 @@ public class SmartDiscoveryService {
 
     public String batchSnapshot(int limit) {
         try {
-            List<Channel> channels = channelRepo.findAll().stream()
+            List<Channel> channels = channelRepository.findAll().stream()
                     .filter(c -> {
                         var latestStat = statRepo.findTopByChannelIdOrderBySnapshotDateDesc(c.getId());
                         return latestStat.isEmpty() ||
@@ -546,17 +548,17 @@ public class SmartDiscoveryService {
      */
     public String getEnhancedStats() {
         try {
-            long totalChannels = channelRepo.count();
+            long totalChannels = channelRepository.count();
             long channelsWithStats = statRepo.findAll().stream()
                     .map(s -> s.getChannel().getId())
                     .distinct()
                     .count();
 
-            long youtubeChannels = channelRepo.findAll().stream()
+            long youtubeChannels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.YOUTUBE)
                     .count();
 
-            long twitchChannels = channelRepo.findAll().stream()
+            long twitchChannels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.TWITCH)
                     .count();
 

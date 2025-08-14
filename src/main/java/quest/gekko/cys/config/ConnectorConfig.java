@@ -3,7 +3,7 @@ package quest.gekko.cys.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
 
 import java.util.List;
 import java.util.Map;

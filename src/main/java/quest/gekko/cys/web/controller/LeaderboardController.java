@@ -1,4 +1,4 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -8,13 +8,15 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.dto.ChannelWithLatestStat;
-import quest.gekko.cys.repo.ChannelRepo;
+import quest.gekko.cys.web.dto.ChannelWithLatestStat;
+import quest.gekko.cys.repository.ChannelRepository;
+
+import java.time.LocalDate;
 
 @Controller
 @RequiredArgsConstructor
 public class LeaderboardController {
-    private final ChannelRepo channelRepo;
+    private final ChannelRepository channelRepository;
 
     @GetMapping("/leaderboard")
     public String leaderboard(@RequestParam(defaultValue = "YOUTUBE") Platform platform,
@@ -22,7 +24,9 @@ public class LeaderboardController {
                               @RequestParam(defaultValue = "20") int size,
                               Model m) {
         try {
-            Page<ChannelWithLatestStat> p = channelRepo.leaderboard(platform.name(), PageRequest.of(page, size));
+            LocalDate cutoffDate = LocalDate.now().minusDays(7);
+
+            Page<ChannelWithLatestStat> p = channelRepository.leaderboard(platform.name(), cutoffDate, PageRequest.of(page, size));
 
             // Debug: log the results
             System.out.println("Leaderboard query returned " + p.getContent().size() + " items");

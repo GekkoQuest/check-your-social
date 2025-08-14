@@ -1,4 +1,4 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -6,12 +6,12 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.repo.ChannelRepo;
-import quest.gekko.cys.repo.DailyStatRepo;
-import quest.gekko.cys.service.RankingService;
-import quest.gekko.cys.service.SmartDiscoveryService;
-import quest.gekko.cys.service.StatsService;
-import quest.gekko.cys.service.connector.PlatformConnector;
+import quest.gekko.cys.repository.ChannelRepository;
+import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.service.core.RankingService;
+import quest.gekko.cys.service.discovery.SmartDiscoveryService;
+import quest.gekko.cys.service.core.StatsService;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
@@ -25,10 +25,10 @@ import java.util.concurrent.CompletableFuture;
 public class AdminController {
 
     private final List<PlatformConnector> connectors;
-    private final ChannelRepo channelRepo;
+    private final ChannelRepository channelRepository;
     private final StatsService statsService;
     private final RankingService rankingService;
-    private final DailyStatRepo statRepo;
+    private final DailyStatRepository statRepo;
     private final SmartDiscoveryService smartDiscoveryService;
 
     // Original ingest endpoint
@@ -40,15 +40,15 @@ public class AdminController {
         if (chOpt.isEmpty()) return "Not found";
 
         // Save the channel
-        Channel saved = channelRepo.findByPlatformAndPlatformId(platform, chOpt.get().getPlatformId())
+        Channel saved = channelRepository.findByPlatformAndPlatformId(platform, chOpt.get().getPlatformId())
                 .map(existing -> {
                     existing.setTitle(chOpt.get().getTitle());
                     existing.setHandle(chOpt.get().getHandle());
                     existing.setAvatarUrl(chOpt.get().getAvatarUrl());
                     existing.setCountry(chOpt.get().getCountry());
-                    return channelRepo.save(existing);
+                    return channelRepository.save(existing);
                 })
-                .orElseGet(() -> channelRepo.save(chOpt.get()));
+                .orElseGet(() -> channelRepository.save(chOpt.get()));
 
         return "OK: " + saved.getHandle() + " (ID: " + saved.getId() + ")";
     }
@@ -57,7 +57,7 @@ public class AdminController {
     @PostMapping("/snapshot/{channelId}")
     @ResponseBody
     public String snapshot(@PathVariable Long channelId) {
-        Channel channel = channelRepo.findById(channelId).orElse(null);
+        Channel channel = channelRepository.findById(channelId).orElse(null);
         if (channel == null) return "Channel not found";
 
         var connector = connectors.stream()
@@ -85,7 +85,7 @@ public class AdminController {
         int processed = 0;
 
         for (PlatformConnector connector : connectors) {
-            var channels = channelRepo.findAll().stream()
+            var channels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == connector.platform())
                     .toList();
 
@@ -111,7 +111,7 @@ public class AdminController {
     @GetMapping("/channels")
     @ResponseBody
     public String listChannels() {
-        var channels = channelRepo.findAll();
+        var channels = channelRepository.findAll();
         if (channels.isEmpty()) return "No channels found";
 
         StringBuilder sb = new StringBuilder("Channels:\n");
@@ -216,8 +216,8 @@ public class AdminController {
     @ResponseBody
     public String healthCheck() {
         try {
-            long totalChannels = channelRepo.count();
-            long staleChannels = channelRepo.findAll().stream()
+            long totalChannels = channelRepository.count();
+            long staleChannels = channelRepository.findAll().stream()
                     .filter(c -> {
                         var latestStat = statRepo.findTopByChannelIdOrderBySnapshotDateDesc(c.getId());
                         return latestStat.isEmpty() ||
@@ -226,11 +226,11 @@ public class AdminController {
                     .count();
 
             long activeChannels = totalChannels - staleChannels;
-            long youtubeChannels = channelRepo.findAll().stream()
+            long youtubeChannels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.YOUTUBE)
                     .count();
 
-            long twitchChannels = channelRepo.findAll().stream()
+            long twitchChannels = channelRepository.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.TWITCH)
                     .count();
 
@@ -278,7 +278,7 @@ public class AdminController {
     public String cleanupDuplicates() {
         try {
             // Find potential duplicates by platform and handle
-            var channels = channelRepo.findAll();
+            var channels = channelRepository.findAll();
             int duplicatesFound = 0;
             int duplicatesRemoved = 0;
 
@@ -306,7 +306,7 @@ public class AdminController {
 
                     for (var duplicate : duplicateList) {
                         if (!duplicate.getId().equals(toKeep.getId())) {
-                            channelRepo.delete(duplicate);
+                            channelRepository.delete(duplicate);
                             duplicatesRemoved++;
                         }
                     }
@@ -325,7 +325,7 @@ public class AdminController {
     @ResponseBody
     public String debugDb() {
         try {
-            var channels = channelRepo.findAll();
+            var channels = channelRepository.findAll();
             long totalChannels = channels.size();
 
             long channelsWithoutHandle = channels.stream()
@@ -377,7 +377,7 @@ public class AdminController {
     @ResponseBody
     public String systemStatus() {
         try {
-            long totalChannels = channelRepo.count();
+            long totalChannels = channelRepository.count();
             long totalStats = statRepo.count();
 
             // Check if rapid discovery mode is active

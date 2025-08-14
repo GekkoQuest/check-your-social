@@ -1,65 +1,119 @@
-<!doctype html>
-<html xmlns:th="http://www.thymeleaf.org"
-      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
-      th:fragment="layout(content)">
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content)">
 <head>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width,initial-scale=1"/>
-    <meta name="theme-color" content="#0b0d10">
-    <title th:text="${title} ?: 'Check Your Social'">Check Your Social</title>
-    <meta property="og:title" content="Check Your Social">
-    <meta property="og:description" content="Track and compare your channel stats with style.">
-    <meta property="og:type" content="website">
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="site.css" th:href="@{/css/site.css}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title th:text="${title != null ? title : 'Check Your Social'}">Check Your Social</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" th:href="@{/favicon.svg}"/>
+  <link rel="stylesheet" href="css/site.css" th:href="@{/css/site.css}">
+
+  <style id="critical-css">
+    /* Minimal fallback so the page isn't white if site.css fails to load */
+    :root { --bg-1:#0e1016; --ink:#e4ebf7; }
+    html,body{height:100%}
+    body{margin:0;background:var(--bg-1);color:var(--ink);font-family:Inter,system-ui,Segoe UI,Roboto,Arial,sans-serif}
+    .shell{min-height:100dvh;display:grid;place-items:center;padding:48px 20px 72px}
+    .panel{width:min(1100px,92vw);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+      border-radius:18px;backdrop-filter:blur(8px);box-shadow:0 30px 80px rgba(0,0,0,.6);overflow:hidden}
+    .panel-head{display:flex;justify-content:space-between;gap:16px;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .panel-body{padding:16px 18px 22px}
+    .panel-band{display:flex;justify-content:center;gap:8px;padding:10px;border-bottom:1px solid rgba(255,255,255,.08)}
+    .orbit{position:fixed;right:22px;bottom:22px;display:grid;gap:10px}
+    .orbit a,.orbit button{display:grid;place-items:center;width:48px;height:48px;border-radius:50%;
+      background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--ink);text-decoration:none}
+    a{color:#7bdffb}
+  </style>
+
 </head>
-<body>
+<body class="bg-stars">
+  <div class="shell">
 
-<header class="header">
-    <a class="brand" href="/" th:href="@{/}">Check Your Social</a>
-    <div style="display:flex; gap:.8rem; align-items:center; flex-wrap:wrap;">
+    <!-- Central content panel -->
+    <article class="panel">
+      <header class="panel-head">
+        <div>
+          <h1 th:if="${title != null}" th:text="${title}">Check Your Social</h1>
+          <div class="muted" th:if="${subtitle != null}" th:text="${subtitle}">Growth analytics, reimagined</div>
+        </div>
+        <div class="actions">
+          <!-- space for page-specific actions if needed -->
+        </div>
+      </header>
+      
 
-        <form class="search" method="get" th:action="@{/search}" role="search" aria-label="Channel search">
-            <select name="platform" aria-label="Platform">
-                <option value="YOUTUBE" th:selected="${platform} == 'YOUTUBE'">YouTube</option>
-                <option value="TWITCH"  th:selected="${platform} == 'TWITCH'">Twitch</option>
-            </select>
-            <input type="search" name="q" th:value="${q}" placeholder="Search channel… @handle or full URL" aria-label="Search query"/>
-            <button type="submit">Search</button>
+<div class="panel-band">
+  <div class="quick">
+    <a href="/leaderboard?platform=YOUTUBE" th:href="@{/leaderboard(platform=${T(quest.gekko.cys.domain.Platform).YOUTUBE})}">YouTube Leaderboard</a>
+    <a href="/leaderboard?platform=TWITCH" th:href="@{/leaderboard(platform=${T(quest.gekko.cys.domain.Platform).TWITCH})}">Twitch Leaderboard</a>
+    <button id="open-search-2" type="button">Open Search</button>
+  </div>
+</div>
+<div class="panel-body">
+        <div th:insert="${content}"></div>
+      </div>
+    </article>
+
+    <!-- Orbit dock (floating navigation + search) -->
+    
+<nav class="orbit" aria-label="Primary">
+  <a href="/" th:href="@{/}" title="Overview"><span>🏠</span><span class="label">Overview</span></a>
+  <a href="/leaderboard" th:href="@{/leaderboard}" title="Leaderboard"><span>🏆</span><span class="label">Leaderboard</span></a>
+  <a href="/leaderboard" th:href="@{/leaderboard}" title="Discover"><span>🧭</span><span class="label">Discover</span></a>
+  <button id="open-search" type="button" title="Search"><span>🔎</span><span class="label">Search (⌘/Ctrl + K)</span></button>
+</nav>
+
+
+    <!-- Command modal (universal search) -->
+    <div class="modal" id="search-modal" aria-hidden="true">
+      <div class="box">
+        <form method="get" th:action="@{/leaderboard}">
+          <input type="text" name="q" placeholder="Search channels…" th:value="${q}" />
+          <select name="platform">
+            <option value="YOUTUBE" th:selected="${platform == T(quest.gekko.cys.domain.Platform).YOUTUBE}">YouTube</option>
+            <option value="TWITCH" th:selected="${platform == T(quest.gekko.cys.domain.Platform).TWITCH}">Twitch</option>
+          </select>
+          <button type="submit">Search</button>
         </form>
-        <nav role="navigation" aria-label="Primary" style="display:flex; gap:.5rem;">
-            <a class="button" href="/leaderboard" th:href="@{/leaderboard}">Leaderboard</a>
-
-            <!-- Show Admin/Login/Logout based on authentication -->
-            <div sec:authorize="hasRole('ADMIN')">
-                <a class="button" href="/admin" th:href="@{/admin}">🛠️ Admin</a>
-            </div>
-
-            <div sec:authorize="isAuthenticated()">
-                <form th:action="@{/logout}" method="post" style="display: inline;">
-                    <button type="submit" class="button" style="background: var(--danger);">Logout</button>
-                </form>
-            </div>
-
-            <div sec:authorize="!isAuthenticated()">
-                <a class="button" href="/login" th:href="@{/login}" style="background: var(--success);">Login</a>
-            </div>
-        </nav>
+      </div>
     </div>
-</header>
 
+  </div>
 
-<main class="container">
-    <div th:insert="${content}"></div>
-</main>
+  <script>
+    // Command modal behavior + keyboard shortcuts
+    (function(){
+      const modal = document.getElementById('search-modal');
+      const openBtn = document.getElementById('open-search');
 
-<footer class="footer">
-    © 2025 Check Your Social — Designed with ❤️ for creators
-    <div sec:authorize="isAuthenticated()" style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
-        Logged in as: <span sec:authentication="name">admin</span>
-    </div>
-</footer>
+      function openModal(){
+        modal.setAttribute('aria-hidden','false');
+        const input = modal.querySelector('input[name="q"]');
+        setTimeout(()=> input && input.focus(), 10);
+      }
+      function closeModal(){
+        modal.setAttribute('aria-hidden','true');
+      }
 
+      openBtn && openBtn.addEventListener('click', openModal);
+      modal && modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+      window.addEventListener('keydown', (e)=>{
+        const mod = e.metaKey || e.ctrlKey;
+        if (mod && e.key.toLowerCase() === 'k'){ e.preventDefault(); openModal(); }
+        if (e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false'){ closeModal(); }
+        if (e.key === '/' && !mod && !e.altKey){
+          const q = document.querySelector('input[name="q"]');
+          if(q){ e.preventDefault(); q.focus(); q.select(); }
+        }
+      });
+    })();
+  
+  // Wire secondary search button
+  (function(){
+    const modal = document.getElementById('search-modal');
+    const btn = document.getElementById('open-search-2');
+    function open(){ modal && modal.setAttribute('aria-hidden','false'); }
+    btn && btn.addEventListener('click', open);
+  })();
+  </script>
 </body>
 </html>
