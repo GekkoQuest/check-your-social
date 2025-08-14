@@ -1,11 +1,222 @@
 <!DOCTYPE html>
-<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Home'"
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Check Your Social - Track Creator Growth'"
       th:replace="~{fragments/_layout :: layout(~{::content})}">
 <th:block th:fragment="content">
-<section>
-        <h1>Track creators. See growth.</h1>
-        <p>Try searching <code>@mkbhd</code> or paste a full channel URL.</p>
-        <p style="opacity:.8">Tip: The first time you search a handle, we’ll ingest it and redirect to the profile.</p>
+
+    <!-- Hero Section -->
+    <section style="text-align: center; margin-bottom: 3rem;">
+        <h1 style="font-size: clamp(2rem, 4vw, 3.5rem); margin-bottom: 1rem; background: linear-gradient(135deg, var(--primary), var(--success)); -webkit-background-clip: text; background-clip: text; color: transparent;">
+            Track Creators. See Growth.
+        </h1>
+        <p style="font-size: 1.2rem; color: var(--muted); margin-bottom: 2rem; max-width: 600px; margin-left: auto; margin-right: auto; line-height: 1.6;">
+            Monitor YouTube and Twitch channels, track subscriber growth, and discover trending creators all in one place.
+        </p>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-bottom: 2rem;">
+            <a href="/leaderboard?platform=YOUTUBE" class="button" style="background: linear-gradient(135deg, #ff0000, #cc0000);">
+                📺 YouTube Leaderboard
+            </a>
+            <a href="/leaderboard?platform=TWITCH" class="button" style="background: linear-gradient(135deg, #9146ff, #772ce8);">
+                🎮 Twitch Leaderboard
+            </a>
+        </div>
+
+        <!-- Quick Search Demo -->
+        <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); max-width: 500px; margin: 0 auto;">
+            <p style="margin-bottom: 1rem; font-weight: 600;">Try searching for a creator:</p>
+            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
+                <button onclick="searchChannel('@mkbhd')" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">@mkbhd</button>
+                <button onclick="searchChannel('@pewdiepie')" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">@pewdiepie</button>
+                <button onclick="searchChannel('@veritasium')" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">@veritasium</button>
+                <button onclick="searchChannel('@mrbeast')" style="font-size: 0.9rem; padding: 0.4rem 0.8rem;">@mrbeast</button>
+            </div>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--muted);">
+                Or paste any YouTube/Twitch channel URL
+            </p>
+        </div>
     </section>
+
+    <!-- Stats Overview -->
+    <section style="margin-bottom: 3rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
+            <!-- Total Channels -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--primary); margin-bottom: 0.5rem;" th:text="${#numbers.formatInteger(totalChannels, 0, 'COMMA')}">0</div>
+                <div style="color: var(--muted); font-weight: 600;">Total Channels</div>
+                <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem;">
+                    <span th:text="${#numbers.formatInteger(youtubeChannels, 0, 'COMMA')}">0</span> YouTube •
+                    <span th:text="${#numbers.formatInteger(twitchChannels, 0, 'COMMA')}">0</span> Twitch
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; font-weight: 800; color: var(--success); margin-bottom: 0.5rem;" th:text="${#numbers.formatInteger(recentStats, 0, 'COMMA')}">0</div>
+                <div style="color: var(--muted); font-weight: 600;">Stats This Week</div>
+                <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem;">Fresh data snapshots</div>
+            </div>
+
+            <!-- Discovery Mode -->
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;" th:text="${isRapidMode} ? '🚀' : '📅'">🚀</div>
+                <div style="color: var(--muted); font-weight: 600;" th:text="${isRapidMode} ? 'Rapid Mode' : 'Daily Mode'">Rapid Mode</div>
+                <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem;" th:text="${isRapidMode} ? 'Auto-discovering every 15min' : 'Daily discovery at 3 AM UTC'">Auto-discovering</div>
+            </div>
+
+            <!-- Action Button -->
+            <div style="background: linear-gradient(135deg, var(--primary), var(--primary-600)); padding: 1.5rem; border-radius: 12px; text-align: center; color: white;">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</div>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Discover More</div>
+                <a href="/admin" style="color: white; text-decoration: underline; font-size: 0.9rem;">Visit Admin Panel</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Top Channels Preview -->
+    <section th:if="${topYouTubeChannels != null and !topYouTubeChannels.isEmpty()}">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+
+            <!-- Top YouTube Channels -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">📺 Top YouTube</h2>
+                    <a href="/leaderboard?platform=YOUTUBE" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">View All →</a>
+                </div>
+
+                <div style="background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden;">
+                    <div th:each="channel, iter : ${topYouTubeChannels}" th:if="${iter.index < 5}"
+                         style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;"
+                         th:style="${iter.last} ? 'padding: 1rem; display: flex; align-items: center; gap: 0.75rem;' : 'padding: 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;'">
+
+                        <div style="font-weight: 700; color: var(--muted); min-width: 24px;" th:text="${iter.index + 1}">1</div>
+
+                        <img th:if="${channel.avatarUrl != null}"
+                             th:src="${channel.avatarUrl}"
+                             alt="avatar"
+                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;"/>
+
+                        <div style="flex: 1; min-width: 0;">
+                            <div>
+                                <a th:href="@{/channel/{id}(id=${channel.id})}"
+                                   th:text="${channel.title}"
+                                   style="color: var(--text); text-decoration: none; font-weight: 600;">Channel</a>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle}">@handle</div>
+                        </div>
+
+                        <div style="text-align: right; color: var(--primary); font-weight: 600; font-size: 0.9rem;">
+                            <span th:text="${channel.subscribers != null ? #numbers.formatInteger(channel.subscribers, 0, 'COMMA') : '0'}">0</span>
+                            <div style="font-size: 0.7rem; color: var(--muted);">subscribers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Twitch Channels -->
+            <div th:if="${topTwitchChannels != null and !topTwitchChannels.isEmpty()}">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">🎮 Top Twitch</h2>
+                    <a href="/leaderboard?platform=TWITCH" style="color: var(--primary); text-decoration: none; font-size: 0.9rem;">View All →</a>
+                </div>
+
+                <div style="background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); overflow: hidden;">
+                    <div th:each="channel, iter : ${topTwitchChannels}" th:if="${iter.index < 5}"
+                         style="padding: 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;"
+                         th:style="${iter.last} ? 'padding: 1rem; display: flex; align-items: center; gap: 0.75rem;' : 'padding: 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.75rem;'">
+
+                        <div style="font-weight: 700; color: var(--muted); min-width: 24px;" th:text="${iter.index + 1}">1</div>
+
+                        <img th:if="${channel.avatarUrl != null}"
+                             th:src="${channel.avatarUrl}"
+                             alt="avatar"
+                             style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;"/>
+
+                        <div style="flex: 1; min-width: 0;">
+                            <div>
+                                <a th:href="@{/channel/{id}(id=${channel.id})}"
+                                   th:text="${channel.title}"
+                                   style="color: var(--text); text-decoration: none; font-weight: 600;">Channel</a>
+                            </div>
+                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle}">@handle</div>
+                        </div>
+
+                        <div style="text-align: right; color: var(--primary); font-weight: 600; font-size: 0.9rem;">
+                            <span th:text="${channel.followers != null ? #numbers.formatInteger(channel.followers, 0, 'COMMA') : '0'}">0</span>
+                            <div style="font-size: 0.7rem; color: var(--muted);">followers</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Placeholder for Twitch if no channels -->
+            <div th:if="${topTwitchChannels == null or topTwitchChannels.isEmpty()}">
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+                    <h2 style="margin: 0;">🎮 Top Twitch</h2>
+                </div>
+
+                <div style="background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--muted);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
+                    <p>No Twitch channels yet</p>
+                    <p style="font-size: 0.9rem;">Visit the admin panel to discover some!</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Getting Started Section -->
+    <section th:if="${totalChannels == 0}" style="background: var(--card-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">🚀</div>
+        <h2>Get Started</h2>
+        <p style="color: var(--muted); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
+            Your database is empty! Visit the admin panel to seed it with popular channels and start tracking growth.
+        </p>
+        <a href="/admin" class="button" style="background: var(--primary);">
+            🛠️ Go to Admin Panel
+        </a>
+    </section>
+
+    <!-- Features Section -->
+    <section style="margin-top: 3rem;">
+        <h2 style="text-align: center; margin-bottom: 2rem;">✨ Features</h2>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
+
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">📊</div>
+                <h3 style="margin-bottom: 0.5rem;">Growth Tracking</h3>
+                <p style="color: var(--muted); font-size: 0.9rem;">Monitor subscriber/follower growth over time with interactive charts</p>
+            </div>
+
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🔍</div>
+                <h3 style="margin-bottom: 0.5rem;">Smart Discovery</h3>
+                <p style="color: var(--muted); font-size: 0.9rem;">Automatically discover trending channels across different niches</p>
+            </div>
+
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">🏆</div>
+                <h3 style="margin-bottom: 0.5rem;">Leaderboards</h3>
+                <p style="color: var(--muted); font-size: 0.9rem;">Compare channels and see who's leading in subscribers and views</p>
+            </div>
+
+            <div style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 2.5rem; margin-bottom: 1rem;">⚡</div>
+                <h3 style="margin-bottom: 0.5rem;">Real-time Updates</h3>
+                <p style="color: var(--muted); font-size: 0.9rem;">Daily snapshots keep your data fresh and accurate</p>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        function searchChannel(handle) {
+            // Update the search input in the header and submit
+            const searchInput = document.querySelector('input[name="q"]');
+            const searchForm = document.querySelector('.search');
+            if (searchInput && searchForm) {
+                searchInput.value = handle;
+                searchForm.submit();
+            }
+        }
+    </script>
+
 </th:block>
 </html>

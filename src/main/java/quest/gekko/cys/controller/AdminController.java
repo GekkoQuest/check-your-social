@@ -1,6 +1,7 @@
 package quest.gekko.cys.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import quest.gekko.cys.domain.Channel;
@@ -15,10 +16,12 @@ import quest.gekko.cys.service.connector.PlatformConnector;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Controller
 @RequestMapping("/admin")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
     private final List<PlatformConnector> connectors;
@@ -74,7 +77,7 @@ public class AdminController {
         }
     }
 
-    // Manual snapshot for ALL channels
+    // Manual snapshot for ALL channels (synchronous for backwards compatibility)
     @PostMapping("/snapshot-all")
     @ResponseBody
     public String snapshotAll() {
@@ -123,72 +126,77 @@ public class AdminController {
         return sb.toString();
     }
 
-    // Seed popular channels
+    // ENHANCED ASYNC DISCOVERY METHODS
+
+    // Seed popular channels (async)
     @PostMapping("/seed-popular")
     @ResponseBody
     public String seedPopularChannels() {
         try {
-            smartDiscoveryService.seedPopularChannels();
-            return "OK: Popular channels seeded successfully";
+            // Trigger async seeding
+            smartDiscoveryService.seedPopular();
+            return "✅ Popular channel seeding started! This will run in the background.";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error starting popular channel seeding: " + e.getMessage();
         }
     }
 
-    // Manual discovery trigger
+    // Manual discovery trigger (async)
     @PostMapping("/discover-now")
     @ResponseBody
     public String discoverNow() {
         try {
             return smartDiscoveryService.manualDiscovery();
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
-    // Mass discovery - NEW powerful discovery method
+    // Mass discovery - NEW powerful discovery method (async)
     @PostMapping("/mass-discovery")
     @ResponseBody
     public String massDiscovery() {
         try {
             return smartDiscoveryService.triggerMassDiscovery();
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
-    // Trending discovery - NEW
+    // Trending discovery - NEW (async)
     @PostMapping("/discover-trending")
     @ResponseBody
     public String discoverTrending() {
         try {
-            smartDiscoveryService.discoverTrendingChannels();
-            return "✅ Trending discovery completed!";
+            smartDiscoveryService.discoverTrending();
+            return "✅ Trending discovery started! Running in background with parallel processing.";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
-    // Related channels discovery - NEW
+    // Related channels discovery - NEW (async)
     @PostMapping("/discover-related")
     @ResponseBody
     public String discoverRelated() {
         try {
-            smartDiscoveryService.discoverRelatedChannels();
-            return "✅ Related channels discovery completed!";
+            smartDiscoveryService.discoverRelated();
+            return "✅ Related channels discovery started! Running in background with parallel processing.";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
-    // Batch snapshot for channels without recent data - NEW
+    // Batch snapshot for channels without recent data - NEW (async)
     @PostMapping("/batch-snapshot")
     @ResponseBody
     public String batchSnapshot(@RequestParam(defaultValue = "100") int limit) {
         try {
-            return smartDiscoveryService.batchSnapshot(limit);
+            // Start async batch snapshot
+            CompletableFuture<String> future = smartDiscoveryService.batchSnapshotAsync(limit);
+            return "✅ Batch snapshot started! Processing up to " + limit + " channels in the background.";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
@@ -199,7 +207,7 @@ public class AdminController {
         try {
             return smartDiscoveryService.getEnhancedStats();
         } catch (Exception e) {
-            return "Error getting stats: " + e.getMessage();
+            return "❌ Error getting stats: " + e.getMessage();
         }
     }
 
@@ -238,6 +246,8 @@ public class AdminController {
                     
                     📈 Health Score: %.1f%%
                     
+                    🚀 Performance Mode: Multi-threaded discovery active
+                    
                     %s
                     """,
                     totalChannels, youtubeChannels, twitchChannels, activeChannels, staleChannels,
@@ -245,20 +255,20 @@ public class AdminController {
                     staleChannels > 0 ? "💡 Consider running batch snapshot to refresh stale channels" : "✅ All channels are up to date!"
             );
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
-    // Discover channels by search term
+    // Discover channels by search term (async)
     @PostMapping("/discover")
     @ResponseBody
     public String discoverChannels(@RequestParam String searchTerm,
                                    @RequestParam(defaultValue = "10") int maxResults) {
         try {
-            smartDiscoveryService.opportunisticDiscovery(searchTerm);
-            return "OK: Discovered channels for '" + searchTerm + "'";
+            smartDiscoveryService.opportunisticDiscoveryAsync(searchTerm);
+            return "✅ Discovery started for '" + searchTerm + "' - running in background!";
         } catch (Exception e) {
-            return "Error: " + e.getMessage();
+            return "❌ Error: " + e.getMessage();
         }
     }
 
@@ -306,7 +316,7 @@ public class AdminController {
             return String.format("🧹 Cleanup completed! Found %d duplicates, removed %d",
                     duplicatesFound, duplicatesRemoved);
         } catch (Exception e) {
-            return "Error during cleanup: " + e.getMessage();
+            return "❌ Error during cleanup: " + e.getMessage();
         }
     }
 
@@ -358,7 +368,7 @@ public class AdminController {
 
             return sb.toString();
         } catch (Exception e) {
-            return "Debug failed: " + e.getMessage();
+            return "❌ Debug failed: " + e.getMessage();
         }
     }
 
@@ -389,11 +399,14 @@ public class AdminController {
                     
                     🤖 Discovery System:
                        • Mode: %s
+                       • Multi-threading: ✅ Enabled
+                       • Async processing: ✅ Active
                        • Next scheduled run: %s
                     
                     🚀 Performance:
                        • Database size: %s
                        • Discovery efficiency: %.1f stats per channel
+                       • Thread pools: Discovery (4-8), Snapshot (2-4)
                     
                     💡 Recommendations:
                     %s
@@ -406,7 +419,7 @@ public class AdminController {
                     getSystemRecommendations(totalChannels, totalStats, rapidMode)
             );
         } catch (Exception e) {
-            return "Error getting system status: " + e.getMessage();
+            return "❌ Error getting system status: " + e.getMessage();
         }
     }
 
@@ -414,13 +427,13 @@ public class AdminController {
         if (channels == 0) {
             return "🌱 Start by running 'Seed Popular' to bootstrap your database!";
         } else if (channels < 50) {
-            return "🚀 Run 'Mass Discovery' to quickly expand your channel database!";
+            return "🚀 Run 'Mass Discovery' to quickly expand your channel database with parallel processing!";
         } else if (rapidMode) {
-            return "⚡ Rapid mode active - database will grow automatically every 15 minutes!";
+            return "⚡ Rapid mode active - database will grow automatically every 15 minutes with multi-threading!";
         } else if (stats < channels * 5) {
-            return "📊 Consider running 'Batch Snapshot' to collect more historical data!";
+            return "📊 Consider running 'Batch Snapshot' to collect more historical data in parallel!";
         } else {
-            return "✅ System running optimally! Monitor health check regularly.";
+            return "✅ System running optimally with multi-threaded processing! Monitor health check regularly.";
         }
     }
 

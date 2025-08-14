@@ -1,6 +1,8 @@
 package quest.gekko.cys.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import quest.gekko.cys.domain.Channel;
@@ -10,14 +12,14 @@ import quest.gekko.cys.repo.DailyStatRepo;
 import quest.gekko.cys.service.connector.PlatformConnector;
 
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SmartDiscoveryService {
 
     private final Map<Platform, PlatformConnector> connectorsByPlatform;
@@ -109,6 +111,7 @@ public class SmartDiscoveryService {
     );
 
     private int currentQueryIndex = 0;
+    private final AtomicInteger discoveryProgress = new AtomicInteger(0);
 
     /**
      * Rapid discovery mode - runs more frequently during bootstrap phase
@@ -116,7 +119,8 @@ public class SmartDiscoveryService {
     @Scheduled(cron = "0 */15 * * * *", zone = "UTC") // Every 15 minutes during bootstrap
     public void rapidDiscoveryMode() {
         if (shouldRunRapidMode()) {
-            runParallelDiscovery();
+            log.info("🚀 Triggering rapid discovery mode");
+            runParallelDiscoveryAsync();
         }
     }
 
@@ -126,7 +130,8 @@ public class SmartDiscoveryService {
     @Scheduled(cron = "0 0 3 * * *", zone = "UTC")
     public void dailyDiscovery() {
         if (!shouldRunRapidMode()) {
-            runStandardDiscovery();
+            log.info("📅 Running daily discovery");
+            runStandardDiscoveryAsync();
         }
     }
 
@@ -136,30 +141,53 @@ public class SmartDiscoveryService {
         return totalChannels < 1000;
     }
 
+    @Async("discoveryExecutor")
+    public CompletableFuture<Void> runParallelDiscoveryAsync() {
+        return CompletableFuture.runAsync(this::runParallelDiscovery);
+    }
+
+    @Async("discoveryExecutor")
+    public CompletableFuture<Void> runStandardDiscoveryAsync() {
+        return CompletableFuture.runAsync(this::runStandardDiscovery);
+    }
+
     public void runParallelDiscovery() {
         var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
         if (youtubeConnector == null) return;
 
-        System.out.println("🚀 Running rapid discovery mode...");
+        log.info("🚀 Running rapid discovery mode...");
 
         // Get random categories to search
-        List<DiscoveryCategory> categories = getRandomCategories(3);
+        List<DiscoveryCategory> categories = getRandomCategories(4);
+        List<CompletableFuture<Integer>> futures = new ArrayList<>();
 
         for (DiscoveryCategory category : categories) {
             // Search multiple terms from each category
-            List<String> terms = getRandomTerms(category, 5);
+            List<String> terms = getRandomTerms(category, 6);
 
             for (String term : terms) {
-                try {
-                    discoverChannelsForTerm(youtubeConnector, term, 25); // More results per search
-                    Thread.sleep(100); // Minimal delay
-                } catch (Exception e) {
-                    System.err.println("Error in rapid discovery for " + term + ": " + e.getMessage());
-                }
+                CompletableFuture<Integer> future = CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return discoverChannelsForTerm(youtubeConnector, term, 20);
+                    } catch (Exception e) {
+                        log.error("Error in rapid discovery for " + term + ": " + e.getMessage());
+                        return 0;
+                    }
+                });
+                futures.add(future);
             }
         }
 
-        System.out.println("✅ Rapid discovery completed. Total channels: " + channelRepo.count());
+        // Wait for all discoveries to complete
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> {
+                    int totalDiscovered = futures.stream()
+                            .mapToInt(f -> f.join())
+                            .sum();
+                    log.info("✅ Rapid discovery completed. Discovered {} new channels. Total channels: {}",
+                            totalDiscovered, channelRepo.count());
+                })
+                .join();
     }
 
     private void runStandardDiscovery() {
@@ -172,17 +200,29 @@ public class SmartDiscoveryService {
         currentQueryIndex++;
 
         try {
-            System.out.println("🔍 Daily discovery starting: " + todaysQuery);
-            discoverChannelsForTerm(youtubeConnector, todaysQuery, 20);
-            System.out.println("✅ Daily discovery completed for: " + todaysQuery);
+            log.info("🔍 Daily discovery starting: " + todaysQuery);
+            int discovered = discoverChannelsForTerm(youtubeConnector, todaysQuery, 25);
+            log.info("✅ Daily discovery completed for: {}. Discovered {} channels", todaysQuery, discovered);
         } catch (Exception e) {
-            System.err.println("❌ Daily discovery failed for '" + todaysQuery + "': " + e.getMessage());
+            log.error("❌ Daily discovery failed for '{}': {}", todaysQuery, e.getMessage());
         }
     }
 
     /**
      * Bootstrap method to quickly populate with high-quality channels
      */
+    @Async("discoveryExecutor")
+    public CompletableFuture<String> seedPopularChannelsAsync() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                seedPopularChannels();
+                return "✅ Popular channels seeded successfully";
+            } catch (Exception e) {
+                return "❌ Error seeding popular channels: " + e.getMessage();
+            }
+        });
+    }
+
     public void seedPopularChannels() {
         var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
         if (youtubeConnector == null) return;
@@ -214,31 +254,47 @@ public class SmartDiscoveryService {
                 "@meetkevin", "@biggerpockets"
         );
 
-        System.out.println("🌱 Bootstrapping with popular channels...");
-        int added = 0;
+        log.info("🌱 Bootstrapping with popular channels...");
 
-        for (String handle : popularHandles) {
-            try {
-                var channelOpt = youtubeConnector.resolveAndHydrate(handle);
-                if (channelOpt.isPresent()) {
-                    channelService.upsertChannel(channelOpt.get());
-                    added++;
-                    System.out.println("✓ Added: " + handle);
-                } else {
-                    System.out.println("✗ Not found: " + handle);
-                }
-                Thread.sleep(200); // Be respectful to API
-            } catch (Exception e) {
-                System.err.println("Error adding " + handle + ": " + e.getMessage());
-            }
-        }
+        // Process in parallel batches
+        List<CompletableFuture<String>> futures = popularHandles.stream()
+                .map(handle -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        var channelOpt = youtubeConnector.resolveAndHydrate(handle);
+                        if (channelOpt.isPresent()) {
+                            channelService.upsertChannel(channelOpt.get());
+                            log.debug("✓ Added: " + handle);
+                            return handle + " ✓";
+                        } else {
+                            log.debug("✗ Not found: " + handle);
+                            return handle + " ✗";
+                        }
+                    } catch (Exception e) {
+                        log.error("Error adding " + handle + ": " + e.getMessage());
+                        return handle + " ❌";
+                    }
+                }))
+                .collect(Collectors.toList());
 
-        System.out.println("🎉 Bootstrap completed. Added " + added + " popular channels.");
+        // Wait for all to complete
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+        long added = futures.stream()
+                .map(CompletableFuture::join)
+                .filter(result -> result.contains("✓"))
+                .count();
+
+        log.info("🎉 Bootstrap completed. Added {} popular channels.", added);
     }
 
     /**
      * Enhanced search with trending and recommendation discovery
      */
+    @Async("discoveryExecutor")
+    public CompletableFuture<Void> discoverTrendingChannelsAsync() {
+        return CompletableFuture.runAsync(this::discoverTrendingChannels);
+    }
+
     public void discoverTrendingChannels() {
         var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
         if (youtubeConnector == null) return;
@@ -250,90 +306,99 @@ public class SmartDiscoveryService {
                 "rising star", "up and coming", "small youtuber"
         );
 
-        System.out.println("🔥 Discovering trending channels...");
-        for (String query : trendingQueries) {
-            try {
-                discoverChannelsForTerm(youtubeConnector, query, 20);
-                Thread.sleep(500); // Slightly longer delay for trending searches
-            } catch (Exception e) {
-                System.err.println("Error discovering trending for " + query + ": " + e.getMessage());
-            }
-        }
-        System.out.println("✅ Trending discovery completed!");
+        log.info("🔥 Discovering trending channels...");
+
+        List<CompletableFuture<Integer>> futures = trendingQueries.stream()
+                .map(query -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return discoverChannelsForTerm(youtubeConnector, query, 15);
+                    } catch (Exception e) {
+                        log.error("Error discovering trending for " + query + ": " + e.getMessage());
+                        return 0;
+                    }
+                }))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> {
+                    int totalDiscovered = futures.stream().mapToInt(CompletableFuture::join).sum();
+                    log.info("✅ Trending discovery completed! Discovered {} channels", totalDiscovered);
+                })
+                .join();
     }
 
     /**
      * Discover channels by exploring related channels (network effect)
      */
+    @Async("discoveryExecutor")
+    public CompletableFuture<Void> discoverRelatedChannelsAsync() {
+        return CompletableFuture.runAsync(this::discoverRelatedChannels);
+    }
+
     public void discoverRelatedChannels() {
         // Get a sample of existing channels and search for related content
         List<Channel> existingChannels = channelRepo.findAll().stream()
-                .limit(50)
+                .limit(30)
                 .collect(Collectors.toList());
 
         var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
         if (youtubeConnector == null) return;
 
-        System.out.println("🔗 Discovering related channels...");
-        for (Channel channel : existingChannels) {
-            try {
-                // Search for channels similar to existing ones
-                String[] searchTerms = {
-                        "like " + channel.getTitle(),
-                        channel.getTitle() + " similar",
-                        "channels like " + channel.getHandle()
-                };
+        log.info("🔗 Discovering related channels...");
 
-                for (String term : searchTerms) {
-                    var foundChannels = youtubeConnector.search(term, 10);
-                    for (var found : foundChannels) {
-                        channelService.upsertChannelIdentityOnly(found);
+        List<CompletableFuture<Integer>> futures = existingChannels.stream()
+                .map(channel -> CompletableFuture.supplyAsync(() -> {
+                    try {
+                        // Search for channels similar to existing ones
+                        String[] searchTerms = {
+                                "like " + channel.getTitle(),
+                                channel.getTitle() + " similar"
+                        };
+
+                        int discovered = 0;
+                        for (String term : searchTerms) {
+                            discovered += discoverChannelsForTerm(youtubeConnector, term, 8);
+                        }
+                        return discovered;
+                    } catch (Exception e) {
+                        log.error("Error discovering related to " + channel.getTitle() + ": " + e.getMessage());
+                        return 0;
                     }
-                    Thread.sleep(200);
-                }
-            } catch (Exception e) {
-                System.err.println("Error discovering related to " + channel.getTitle() + ": " + e.getMessage());
-            }
-        }
-        System.out.println("✅ Related channel discovery completed!");
+                }))
+                .collect(Collectors.toList());
+
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> {
+                    int totalDiscovered = futures.stream().mapToInt(CompletableFuture::join).sum();
+                    log.info("✅ Related channel discovery completed! Discovered {} channels", totalDiscovered);
+                })
+                .join();
     }
 
     /**
      * Discover channels when a user searches but doesn't find what they want
      */
+    @Async("discoveryExecutor")
+    public CompletableFuture<Void> opportunisticDiscoveryAsync(String userSearchTerm) {
+        return CompletableFuture.runAsync(() -> opportunisticDiscovery(userSearchTerm));
+    }
+
     public void opportunisticDiscovery(String userSearchTerm) {
         var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
         if (youtubeConnector == null) return;
 
         try {
-            System.out.println("🎯 Opportunistic discovery for: " + userSearchTerm);
-
-            // If user searched for something we don't have, discover it
-            var channels = youtubeConnector.search(userSearchTerm, 10);
-            int discovered = 0;
-
-            for (var channel : channels) {
-                var existing = channelRepo.findByPlatformAndPlatformId(
-                        channel.getPlatform(),
-                        channel.getPlatformId()
-                );
-
-                if (existing.isEmpty()) {
-                    channelService.upsertChannelIdentityOnly(channel);
-                    discovered++;
-                }
-            }
-
+            log.info("🎯 Opportunistic discovery for: " + userSearchTerm);
+            int discovered = discoverChannelsForTerm(youtubeConnector, userSearchTerm, 12);
             if (discovered > 0) {
-                System.out.println("   📈 Discovered " + discovered + " new channels");
+                log.info("📈 Discovered {} new channels for search term: {}", discovered, userSearchTerm);
             }
-
         } catch (Exception e) {
-            System.err.println("Opportunistic discovery failed: " + e.getMessage());
+            log.error("Opportunistic discovery failed: " + e.getMessage());
         }
     }
 
-    private void discoverChannelsForTerm(PlatformConnector connector, String term, int maxResults) {
+    private int discoverChannelsForTerm(PlatformConnector connector, String term, int maxResults) {
         try {
             var channels = connector.search(term, maxResults);
             int discovered = 0;
@@ -351,10 +416,12 @@ public class SmartDiscoveryService {
             }
 
             if (discovered > 0) {
-                System.out.println("  📈 " + term + ": " + discovered + " new channels");
+                log.debug("📈 {}: {} new channels", term, discovered);
             }
+            return discovered;
         } catch (Exception e) {
-            System.err.println("Error discovering for " + term + ": " + e.getMessage());
+            log.error("Error discovering for " + term + ": " + e.getMessage());
+            return 0;
         }
     }
 
@@ -375,38 +442,36 @@ public class SmartDiscoveryService {
      */
     public String manualDiscovery() {
         try {
-            runParallelDiscovery();
-            return "Manual discovery completed successfully";
+            runParallelDiscoveryAsync().join();
+            return "✅ Manual discovery completed successfully";
         } catch (Exception e) {
-            return "Manual discovery failed: " + e.getMessage();
+            return "❌ Manual discovery failed: " + e.getMessage();
         }
     }
 
     /**
-     * Mass discovery - runs all discovery methods
+     * Mass discovery - runs all discovery methods in parallel
      */
     public String triggerMassDiscovery() {
         try {
-            System.out.println("🚀 Starting mass discovery...");
+            log.info("🚀 Starting mass discovery...");
 
-            seedPopularChannels();
-            Thread.sleep(2000); // Brief pause
+            // Run all discovery methods in parallel
+            CompletableFuture<String> seedFuture = seedPopularChannelsAsync();
+            CompletableFuture<Void> trendingFuture = discoverTrendingChannelsAsync();
+            CompletableFuture<Void> parallelFuture = runParallelDiscoveryAsync();
+            CompletableFuture<Void> relatedFuture = discoverRelatedChannelsAsync();
 
-            discoverTrendingChannels();
-            Thread.sleep(2000);
-
-            runParallelDiscovery();
-            Thread.sleep(2000);
-
-            discoverRelatedChannels();
+            // Wait for all to complete
+            CompletableFuture.allOf(seedFuture, trendingFuture, parallelFuture, relatedFuture).join();
 
             long total = channelRepo.count();
             String result = "✅ Mass discovery completed! Total channels: " + total;
-            System.out.println(result);
+            log.info(result);
             return result;
         } catch (Exception e) {
             String error = "❌ Mass discovery failed: " + e.getMessage();
-            System.err.println(error);
+            log.error(error, e);
             return error;
         }
     }
@@ -414,6 +479,11 @@ public class SmartDiscoveryService {
     /**
      * Batch snapshot channels that need data
      */
+    @Async("snapshotExecutor")
+    public CompletableFuture<String> batchSnapshotAsync(int limit) {
+        return CompletableFuture.supplyAsync(() -> batchSnapshot(limit));
+    }
+
     public String batchSnapshot(int limit) {
         try {
             List<Channel> channels = channelRepo.findAll().stream()
@@ -428,43 +498,47 @@ public class SmartDiscoveryService {
             var youtubeConnector = connectorsByPlatform.get(Platform.YOUTUBE);
             if (youtubeConnector == null) return "No YouTube connector available";
 
-            int processed = 0;
-            for (Channel channel : channels) {
-                try {
-                    if (channel.getPlatform() == Platform.YOUTUBE) {
-                        var counters = youtubeConnector.fetchCounters(channel.getPlatformId());
-                        statsService.snapshot(channel, counters, LocalDate.now());
-                        processed++;
-                        Thread.sleep(500); // Rate limiting
-                    }
-                } catch (Exception e) {
-                    System.err.println("Error processing " + channel.getHandle() + ": " + e.getMessage());
-                }
-            }
+            // Process snapshots in parallel batches
+            List<CompletableFuture<Boolean>> futures = channels.stream()
+                    .filter(c -> c.getPlatform() == Platform.YOUTUBE)
+                    .map(channel -> CompletableFuture.supplyAsync(() -> {
+                        try {
+                            var counters = youtubeConnector.fetchCounters(channel.getPlatformId());
+                            statsService.snapshot(channel, counters, LocalDate.now());
+                            return true;
+                        } catch (Exception e) {
+                            log.error("Error processing " + channel.getHandle() + ": " + e.getMessage());
+                            return false;
+                        }
+                    }))
+                    .collect(Collectors.toList());
+
+            // Wait for all snapshots to complete
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            long processed = futures.stream()
+                    .map(CompletableFuture::join)
+                    .filter(success -> success)
+                    .count();
 
             return String.format("✅ Batch snapshot completed! Processed %d/%d channels",
                     processed, channels.size());
         } catch (Exception e) {
-            return "Batch snapshot failed: " + e.getMessage();
+            return "❌ Batch snapshot failed: " + e.getMessage();
         }
     }
 
-    /**
-     * Get discovery statistics
-     */
-    public DiscoveryStats getDiscoveryProgress() {
-        long totalChannels = channelRepo.count();
-        long channelsWithStats = statRepo.findAll().stream()
-                .map(s -> s.getChannel().getId())
-                .distinct()
-                .count();
+    // Expose async methods for controller
+    public void seedPopular() {
+        seedPopularChannelsAsync();
+    }
 
-        return new DiscoveryStats(
-                (int) totalChannels,
-                currentQueryIndex,
-                DISCOVERY_CATEGORIES.size() * 10,
-                DISCOVERY_CATEGORIES.get((currentQueryIndex - 1 + DISCOVERY_CATEGORIES.size()) % DISCOVERY_CATEGORIES.size()).name()
-        );
+    public void discoverTrending() {
+        discoverTrendingChannelsAsync();
+    }
+
+    public void discoverRelated() {
+        discoverRelatedChannelsAsync();
     }
 
     /**
@@ -501,9 +575,14 @@ public class SmartDiscoveryService {
                        • Current progress: %.1f%%
                        • Discovery mode: %s
                     
+                    🚀 Performance:
+                       • Multi-threading: ✅ Enabled
+                       • Parallel discovery: ✅ Active
+                       • Async snapshots: ✅ Active
+                    
                     🔧 Available Actions:
                        • Seed Popular: Add 50+ popular channels instantly
-                       • Mass Discovery: Run all discovery methods
+                       • Mass Discovery: Run all discovery methods in parallel
                        • Trending: Find currently popular channels
                        • Related: Discover channels similar to existing ones
                     
@@ -525,7 +604,7 @@ public class SmartDiscoveryService {
         if (totalChannels < 50) {
             return "🚀 Start with 'Seed Popular' to add popular channels instantly!";
         } else if (totalChannels < 200) {
-            return "📈 Run 'Mass Discovery' to rapidly expand your database!";
+            return "📈 Run 'Mass Discovery' to rapidly expand your database in parallel!";
         } else if (totalChannels < 500) {
             return "🎯 Use 'Trending Discovery' to find currently popular channels!";
         } else if (totalChannels < 1000) {
