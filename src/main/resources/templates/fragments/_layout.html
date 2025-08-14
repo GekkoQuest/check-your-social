@@ -1,0 +1,46 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org" th:fragment="layout(content)">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="theme-color" content="#0b0d10">
+  <title th:text="${title} ?: 'Check Your Social'">Check Your Social</title>
+  <meta property="og:title" content="Check Your Social">
+  <meta property="og:description" content="Track and compare your channel stats with style.">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="site.css" th:href="@{/css/site.css}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<header class="header">
+  <a class="brand" href="/" th:href="@{/}">Check Your Social</a>
+  <div style="display:flex; gap:.8rem; align-items:center; flex-wrap:wrap;">
+
+  <form class="search" method="get" th:action="@{/search}" role="search" aria-label="Channel search">
+    <select name="platform" aria-label="Platform">
+      <option value="YOUTUBE" th:selected="${platform} == 'YOUTUBE'">YouTube</option>
+      <option value="TWITCH"  th:selected="${platform} == 'TWITCH'">Twitch</option>
+    </select>
+    <input type="search" name="q" th:value="${q}" placeholder="Search channel… @handle or full URL" aria-label="Search query"/>
+    <button type="submit">Search</button>
+  </form>
+    <nav role="navigation" aria-label="Primary" style="display:flex; gap:.5rem;">
+      <a class="button" href="/leaderboard" th:href="@{/leaderboard}">Leaderboard</a>
+      <a class="button" href="/admin" th:href="@{/admin}">Admin</a>
+    </nav>
+  </div>
+</header>
+
+
+<main class="container">
+  <div th:insert="${content}"></div>
+</main>
+
+<footer class="footer">
+  © 2025 Check Your Social — Designed with ❤️ for creators
+</footer>
+
+</body>
+</html>

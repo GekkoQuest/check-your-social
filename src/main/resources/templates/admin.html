@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Admin'"
+      th:replace="~{fragments/_layout :: layout(~{::content})}">
+<th:block th:fragment="content">
+<div class="hero">
+        <h1>Admin Panel</h1>
+        <p class="muted">Manual controls for testing and management</p>
+    </div>
+
+    <div style="display: grid; gap: 2rem; max-width: 800px;">
+
+        <!-- Ingest new channel -->
+        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+            <h3>Add New Channel</h3>
+            <form id="ingestForm" style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+                <select name="platform" required>
+                    <option value="YOUTUBE">YouTube</option>
+                    <option value="TWITCH">Twitch</option>
+                </select>
+                <input name="handleOrUrl" placeholder="@mkbhd or full URL" required style="flex: 1;"/>
+                <button type="submit">Add Channel</button>
+            </form>
+            <div id="ingestResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
+        </section>
+
+        <!-- Channel Discovery -->
+        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+            <h3>Smart Channel Discovery</h3>
+            <p class="muted">Automated system that discovers channels daily across different niches</p>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+                <button onclick="seedPopular()">Seed Popular Channels</button>
+                <button onclick="discoverNow()">Run Discovery Now</button>
+                <button onclick="getStats()">View Discovery Stats</button>
+            </div>
+            <div style="margin-top: 1rem;">
+                <form onsubmit="discoverChannels(event)" style="display: flex; gap: 0.5rem;">
+                    <input name="searchTerm" placeholder="tech reviews" required/>
+                    <button type="submit">Manual Discovery</button>
+                </form>
+            </div>
+            <div id="discoveryResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
+
+            <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                <h4 style="margin: 0 0 0.5rem 0;">How It Works:</h4>
+                <ul style="margin: 0; font-size: 0.9rem;">
+                    <li><strong>Daily Automated Discovery:</strong> Runs at 3 AM UTC, discovers 20 channels per day</li>
+                    <li><strong>Smart Niche Coverage:</strong> Cycles through tech, gaming, education, entertainment, etc.</li>
+                    <li><strong>Opportunistic Discovery:</strong> When users search for channels we don't have</li>
+                    <li><strong>Legal & Respectful:</strong> Uses official YouTube API with proper rate limiting</li>
+                </ul>
+            </div>
+        </section>
+        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+            <h3>Take Snapshots</h3>
+            <p class="muted">Fetch current stats for channels</p>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button onclick="snapshotAll()">Snapshot All Channels</button>
+                <button onclick="listChannels()">List All Channels</button>
+                <button onclick="cleanupDuplicates()">Cleanup Duplicates</button>
+                <button onclick="debugDb()">Debug Database</button>
+            </div>
+            <div id="snapshotResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
+        </section>
+
+        <!-- Quick links -->
+        <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
+            <h3>Quick Links</h3>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <a href="/leaderboard" class="button">View Leaderboard</a>
+                <a href="/" class="button">Home</a>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // Handle ingest form
+        document.getElementById('ingestForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const platform = formData.get('platform');
+            const handleOrUrl = formData.get('handleOrUrl');
+
+            try {
+                const response = await fetch(`/admin/ingest/${platform}?handleOrUrl=${encodeURIComponent(handleOrUrl)}`, {
+                    method: 'POST'
+                });
+                const result = await response.text();
+                showResult('ingestResult', result, response.ok);
+            } catch (error) {
+                showResult('ingestResult', 'Error: ' + error.message, false);
+            }
+        });
+
+        // Snapshot all channels
+        async function snapshotAll() {
+            try {
+                const response = await fetch('/admin/snapshot-all', { method: 'POST' });
+                const result = await response.text();
+                showResult('snapshotResult', result, response.ok);
+            } catch (error) {
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // List channels
+        async function listChannels() {
+            try {
+                const response = await fetch('/admin/channels');
+                const result = await response.text();
+                showResult('snapshotResult', result, response.ok);
+            } catch (error) {
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Seed popular channels
+        async function seedPopular() {
+            try {
+                showResult('discoveryResult', 'Seeding channels... this may take a few minutes.', true);
+                const response = await fetch('/admin/seed-popular', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Run discovery now
+        async function discoverNow() {
+            try {
+                showResult('discoveryResult', 'Running discovery... finding new channels.', true);
+                const response = await fetch('/admin/discover-now', { method: 'POST' });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Get discovery stats
+        async function getStats() {
+            try {
+                const response = await fetch('/admin/discovery-stats');
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Manual discovery by search term
+        async function discoverChannels(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const searchTerm = formData.get('searchTerm');
+
+            try {
+                showResult('discoveryResult', `Discovering channels for "${searchTerm}"...`, true);
+                const response = await fetch(`/admin/discover?searchTerm=${encodeURIComponent(searchTerm)}`, {
+                    method: 'POST'
+                });
+                const result = await response.text();
+                showResult('discoveryResult', result, response.ok);
+            } catch (error) {
+                showResult('discoveryResult', 'Error: ' + error.message, false);
+            }
+        }
+
+        // Show result helper
+        function showResult(elementId, message, isSuccess) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            element.style.backgroundColor = isSuccess ? '#d4edda' : '#f8d7da';
+            element.style.color = isSuccess ? '#155724' : '#721c24';
+            element.style.border = `1px solid ${isSuccess ? '#c3e6cb' : '#f5c6cb'}`;
+            element.style.borderRadius = '4px';
+        }
+    </script>
+</th:block>
+</html>

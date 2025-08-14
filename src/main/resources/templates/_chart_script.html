@@ -1,0 +1,43 @@
+<th:block th:fragment="chart(data)">
+    <script>
+        (function(){
+            const el = document.getElementById('chart-data');
+            if (!el) return;
+
+            // attribute values like: [2025-08-13, 2025-08-14] and [100, 120, 140]
+            const parseBracketList = (s, mapFn) => {
+                if (!s || s.length < 2) return [];
+                // drop [ and ]
+                const inner = s.substring(1, s.length - 1).trim();
+                if (!inner) return [];
+                // split by comma, trim, drop empties
+                return inner.split(',')
+                    .map(x => x.trim())
+                    .filter(x => x.length > 0)
+                    .map(mapFn);
+            };
+
+            // Dates come from JPA as ISO-8601 (LocalDate.toString)
+            const labels = parseBracketList(el.getAttribute('data-labels'), x => x);
+            const series = parseBracketList(el.getAttribute('data-series'), x => Number(x));
+
+            const ctx = document.getElementById('subsChart')?.getContext('2d');
+            if (!ctx) return;
+
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{ label: 'Subscribers', data: series, fill: false, tension: 0.2 }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: { x: { ticks: { autoSkip: true, maxTicksLimit: 10 } }, y: { beginAtZero: false } },
+                    plugins: { legend: { display: true } }
+                }
+            });
+        })();
+    </script>
+</th:block>

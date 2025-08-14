@@ -1,0 +1,11 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Home'"
+      th:replace="~{fragments/_layout :: layout(~{::content})}">
+<th:block th:fragment="content">
+<section>
+        <h1>Track creators. See growth.</h1>
+        <p>Try searching <code>@mkbhd</code> or paste a full channel URL.</p>
+        <p style="opacity:.8">Tip: The first time you search a handle, we’ll ingest it and redirect to the profile.</p>
+    </section>
+</th:block>
+</html>
