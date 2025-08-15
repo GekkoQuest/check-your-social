@@ -2,21 +2,14 @@
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Leaderboard'"
       th:replace="~{fragments/_layout :: layout(~{::content})}">
 <th:block th:fragment="content">
-    <!-- Normalize inputs: p may be a Page or a List -->
-    <div th:with="
-        p=${results != null ? results : page},
-        pageObj=${p instanceof T(org.springframework.data.domain.Page) ? p : null},
-        items=${pageObj != null ? pageObj.content : (p != null ? p : #lists.list())},
-        startIndex=${pageObj != null ? pageObj.number * pageObj.size : 0},
-        isYoutube=${platform != null and platform.name() == 'YOUTUBE'}
-      ">
-
+    <div th:with="p=${results != null ? results : page}">
         <div class="hero">
             <div>
-                <h1 th:if="${q != null}">Search results</h1>
+                <h1 th:if="${q != null}">Search Results</h1>
                 <h1 th:if="${q == null}">Leaderboard</h1>
                 <p class="muted" th:if="${q != null}">
-                    for <strong th:text="${q}">query</strong>
+                    for <strong th:text="${q}">query</strong> on <span th:text="${platform}">platform</span>
+                    <span th:if="${p != null}" th:text="'(' + ${p.totalElements} + ' results)'"></span>
                 </p>
                 <p class="muted" th:if="${q == null and platform != null}"
                    th:text="${platform.name() + ' channels ranked by ' + (platform.name() == 'YOUTUBE' ? 'subscribers' : 'followers')}">
@@ -28,82 +21,90 @@
         <!-- Error message if any -->
         <div th:if="${error != null}" class="alert alert-danger" th:text="${error}">Error message</div>
 
-        <!-- Results table -->
-        <div th:if="${!#lists.isEmpty(items)}">
-            <table class="table">
-                <thead>
-                <tr>
-                    <th style="width:64px;">#</th>
-                    <th>Channel</th>
-                    <th th:text="${isYoutube ? 'Subscribers' : 'Followers'}">Subscribers</th>
-                    <th>Views</th>
-                    <th>Videos</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="c, iter : ${items}">
-                    <td th:text="${startIndex + iter.index + 1}">1</td>
-                    <td>
-                        <div style="display:flex; gap:.75rem; align-items:center;">
-                            <img th:if="${c.avatarUrl != null}" th:src="${c.avatarUrl}" alt="avatar" class="avatar-sm"/>
-                            <div>
-                                <a th:href="@{/channel/{id}(id=${c.id})}" th:text="${c.title}">Channel Title</a>
-                                <div class="muted" th:text="${c.handle}">@handle</div>
+        <!-- Search suggestion if no results -->
+        <div th:if="${q != null and (p == null or !p.hasContent())}"
+             style="background: var(--card-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border); text-align: center; margin-bottom: 2rem;">
+            <div style="font-size: 2rem; margin-bottom: 1rem;">🔍</div>
+            <h3>No results found for "<span th:text="${q}">query</span>"</h3>
+            <p style="color: var(--muted); margin: 1rem 0;">
+                Try searching for a specific channel like <code>@pewdiepie</code> or <code>@mkbhd</code>
+            </p>
+            <div style="display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-top: 1rem;">
+                <a th:href="@{/search(q='@pewdiepie', platform='YOUTUBE')}" class="button" style="font-size: 0.9rem;">Try @pewdiepie</a>
+                <a th:href="@{/search(q='@mkbhd', platform='YOUTUBE')}" class="button" style="font-size: 0.9rem;">Try @mkbhd</a>
+                <a th:href="@{/search(q='tech review', platform='YOUTUBE')}" class="button" style="font-size: 0.9rem;">Try "tech review"</a>
+            </div>
+        </div>
+
+        <!-- Handle different data sources -->
+        <th:block th:with="isYoutube=${platform != null and platform.name() == 'YOUTUBE'}">
+
+            <!-- Results table -->
+            <div th:if="${p != null and p.hasContent()}">
+                <table class="table">
+                    <thead>
+                    <tr>
+                        <th style="width:64px;">#</th>
+                        <th>Channel</th>
+                        <th th:text="${isYoutube ? 'Subscribers' : 'Followers'}">Subscribers</th>
+                        <th>Views</th>
+                        <th>Videos</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="c,iter : ${p.content}">
+                        <td th:text="${(p.number * p.size) + iter.index + 1}">1</td>
+                        <td>
+                            <div style="display:flex; gap:.75rem; align-items:center;">
+                                <img th:if="${c.avatarUrl() != null}" th:src="${c.avatarUrl()}" alt="avatar" class="avatar-sm"/>
+                                <div>
+                                    <a th:href="@{/channel/{id}(id=${c.id()})}" th:text="${c.title()}">Channel Title</a>
+                                    <div class="muted" th:text="${c.handle()}">@handle</div>
+                                </div>
                             </div>
-                        </div>
-                    </td>
-                    <td th:text="${
-                isYoutube
-                  ? (c.subscribers != null ? #numbers.formatInteger(c.subscribers, 0, 'COMMA') : 0)
-                  : (c.followers   != null ? #numbers.formatInteger(c.followers,   0, 'COMMA') : 0)
-              }">0</td>
-                    <td th:text="${c.views  != null ? #numbers.formatInteger(c.views,  0, 'COMMA') : 0}">0</td>
-                    <td th:text="${c.videos != null ? #numbers.formatInteger(c.videos, 0, 'COMMA') : 0}">0</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
+                        </td>
+                        <td th:text="${isYoutube ? (c.subscribers() != null ? #numbers.formatInteger(c.subscribers(), 0, 'COMMA') : 0) : (c.followers() != null ? #numbers.formatInteger(c.followers(), 0, 'COMMA') : 0)}">0</td>
+                        <td th:text="${c.views() != null ? #numbers.formatInteger(c.views(), 0, 'COMMA') : 0}">0</td>
+                        <td th:text="${c.videos() != null ? #numbers.formatInteger(c.videos(), 0, 'COMMA') : 0}">0</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
 
-        <!-- Empty state -->
-        <div th:if="${#lists.isEmpty(items)}" class="muted" style="margin:.5rem 0 1rem;">
-            No results found.
-        </div>
+            <!-- Empty state for regular leaderboard -->
+            <div th:if="${q == null and (p == null or !p.hasContent())}"
+                 style="background: var(--card-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                <h3>No channels yet</h3>
+                <p style="color: var(--muted); margin-bottom: 2rem;">
+                    Visit the admin panel to discover and add channels to the leaderboard
+                </p>
+                <a href="/admin" class="button">🛠️ Go to Admin Panel</a>
+            </div>
 
-        <!-- Pagination: only when we truly have a Page -->
-        <nav th:if="${pageObj != null and pageObj.totalPages > 1}" style="margin-top:1rem;">
-            <ul class="pagination">
-                <li class="page-item" th:classappend="${pageObj.first} ? 'disabled'">
-                    <a class="page-link"
-                       th:href="${q != null}
-                        ? @{/search(platform=${platform}, q=${q}, page=${pageObj.number - 1}, size=${pageObj.size})}
-                        : @{/leaderboard(platform=${platform}, page=${pageObj.number - 1}, size=${pageObj.size})}">
-                        Prev
-                    </a>
-                </li>
+            <!-- Simple Pagination -->
+            <nav th:if="${p != null and p.totalPages > 1}" style="margin-top:1rem;">
+                <ul class="pagination">
+                    <li class="page-item" th:classappend="${p.first} ? 'disabled'">
+                        <a class="page-link"
+                           th:href="${q != null} ? @{/search(platform=${platform}, q=${q}, page=${p.number > 0 ? p.number - 1 : 0}, size=${p.size})}
+                                             : @{/leaderboard(platform=${platform}, page=${p.number > 0 ? p.number - 1 : 0}, size=${p.size})}">Prev</a>
+                    </li>
 
-                <li class="page-item"
-                    th:each="i : ${#numbers.sequence(0, pageObj.totalPages - 1)}"
-                    th:classappend="${i == pageObj.number} ? 'active'">
-                    <a class="page-link"
-                       th:text="${i + 1}"
-                       th:href="${q != null}
-                        ? @{/search(platform=${platform}, q=${q}, page=${i}, size=${pageObj.size})}
-                        : @{/leaderboard(platform=${platform}, page=${i}, size=${pageObj.size})}">
-                        1
-                    </a>
-                </li>
+                    <li class="page-item active">
+                        <span class="page-link" th:text="${p.number + 1}">1</span>
+                    </li>
 
-                <li class="page-item" th:classappend="${pageObj.last} ? 'disabled'">
-                    <a class="page-link"
-                       th:href="${q != null}
-                        ? @{/search(platform=${platform}, q=${q}, page=${pageObj.number + 1}, size=${pageObj.size})}
-                        : @{/leaderboard(platform=${platform}, page=${pageObj.number + 1}, size=${pageObj.size})}">
-                        Next
-                    </a>
-                </li>
-            </ul>
-        </nav>
+                    <li class="page-item" th:classappend="${p.last} ? 'disabled'">
+                        <a class="page-link"
+                           th:href="${q != null} ? @{/search(platform=${platform}, q=${q}, page=${p.number + 1 < p.totalPages ? p.number + 1 : p.number}, size=${p.size})}
+                                             : @{/leaderboard(platform=${platform}, page=${p.number + 1 < p.totalPages ? p.number + 1 : p.number}, size=${p.size})}">Next</a>
+                    </li>
+                </ul>
+            </nav>
 
+        </th:block>
     </div>
+
 </th:block>
 </html>

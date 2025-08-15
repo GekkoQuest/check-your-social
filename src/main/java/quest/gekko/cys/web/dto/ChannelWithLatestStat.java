@@ -3,16 +3,16 @@ package quest.gekko.cys.web.dto;
 import quest.gekko.cys.domain.Platform;
 
 public interface ChannelWithLatestStat {
-    Long getId();
+    Long id();
 
-    Platform getPlatform();
+    Platform platform();
 
-    String getHandle();
-    String getTitle();
-    String getAvatarUrl();
+    String handle();
+    String title();
+    String avatarUrl();
 
-    Long getSubscribers();
-    Long getFollowers();
-    Long getViews();
-    Long getVideos();
+    Long subscribers();
+    Long followers();
+    Long views();
+    Long videos();
 }

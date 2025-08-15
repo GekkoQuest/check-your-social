@@ -9,9 +9,9 @@ import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.repository.ChannelRepository;
 import quest.gekko.cys.repository.DailyStatRepository;
-import quest.gekko.cys.service.integration.connector.PlatformConnector;
 import quest.gekko.cys.service.core.ChannelService;
 import quest.gekko.cys.service.core.StatsService;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -23,10 +23,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class SmartDiscoveryService {
-
     private final Map<Platform, PlatformConnector> connectorsByPlatform;
     private final ChannelService channelService;
-    private final ChannelRepository channelRepository;
+    private final ChannelRepository channelRepo;
     private final DailyStatRepository statRepo;
     private final StatsService statsService;
 
@@ -138,7 +137,7 @@ public class SmartDiscoveryService {
     }
 
     private boolean shouldRunRapidMode() {
-        long totalChannels = channelRepository.count();
+        long totalChannels = channelRepo.count();
         // Run rapid mode until we have at least 1000 channels
         return totalChannels < 1000;
     }
@@ -187,7 +186,7 @@ public class SmartDiscoveryService {
                             .mapToInt(f -> f.join())
                             .sum();
                     log.info("✅ Rapid discovery completed. Discovered {} new channels. Total channels: {}",
-                            totalDiscovered, channelRepository.count());
+                            totalDiscovered, channelRepo.count());
                 })
                 .join();
     }
@@ -339,7 +338,7 @@ public class SmartDiscoveryService {
 
     public void discoverRelatedChannels() {
         // Get a sample of existing channels and search for related content
-        List<Channel> existingChannels = channelRepository.findAll().stream()
+        List<Channel> existingChannels = channelRepo.findAll().stream()
                 .limit(30)
                 .collect(Collectors.toList());
 
@@ -406,7 +405,7 @@ public class SmartDiscoveryService {
             int discovered = 0;
 
             for (var channel : channels) {
-                var existing = channelRepository.findByPlatformAndPlatformId(
+                var existing = channelRepo.findByPlatformAndPlatformId(
                         channel.getPlatform(),
                         channel.getPlatformId()
                 );
@@ -444,7 +443,7 @@ public class SmartDiscoveryService {
      */
     public String manualDiscovery() {
         try {
-            runParallelDiscoveryAsync().join();
+            runParallelDiscovery();
             return "✅ Manual discovery completed successfully";
         } catch (Exception e) {
             return "❌ Manual discovery failed: " + e.getMessage();
@@ -467,7 +466,7 @@ public class SmartDiscoveryService {
             // Wait for all to complete
             CompletableFuture.allOf(seedFuture, trendingFuture, parallelFuture, relatedFuture).join();
 
-            long total = channelRepository.count();
+            long total = channelRepo.count();
             String result = "✅ Mass discovery completed! Total channels: " + total;
             log.info(result);
             return result;
@@ -488,7 +487,7 @@ public class SmartDiscoveryService {
 
     public String batchSnapshot(int limit) {
         try {
-            List<Channel> channels = channelRepository.findAll().stream()
+            List<Channel> channels = channelRepo.findAll().stream()
                     .filter(c -> {
                         var latestStat = statRepo.findTopByChannelIdOrderBySnapshotDateDesc(c.getId());
                         return latestStat.isEmpty() ||
@@ -530,17 +529,20 @@ public class SmartDiscoveryService {
         }
     }
 
-    // Expose async methods for controller
+    // Expose async methods for controller - FIXED METHODS
+    @Async("discoveryExecutor")
     public void seedPopular() {
-        seedPopularChannelsAsync();
+        seedPopularChannels();
     }
 
+    @Async("discoveryExecutor")
     public void discoverTrending() {
-        discoverTrendingChannelsAsync();
+        discoverTrendingChannels();
     }
 
+    @Async("discoveryExecutor")
     public void discoverRelated() {
-        discoverRelatedChannelsAsync();
+        discoverRelatedChannels();
     }
 
     /**
@@ -548,17 +550,17 @@ public class SmartDiscoveryService {
      */
     public String getEnhancedStats() {
         try {
-            long totalChannels = channelRepository.count();
+            long totalChannels = channelRepo.count();
             long channelsWithStats = statRepo.findAll().stream()
                     .map(s -> s.getChannel().getId())
                     .distinct()
                     .count();
 
-            long youtubeChannels = channelRepository.findAll().stream()
+            long youtubeChannels = channelRepo.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.YOUTUBE)
                     .count();
 
-            long twitchChannels = channelRepository.findAll().stream()
+            long twitchChannels = channelRepo.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.TWITCH)
                     .count();
 

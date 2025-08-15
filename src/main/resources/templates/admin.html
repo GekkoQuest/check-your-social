@@ -135,160 +135,390 @@
     </div>
 
     <script>
+        // Add loading states for buttons
+        function setButtonLoading(button, loading = true) {
+            if (loading) {
+                button.dataset.originalText = button.textContent;
+                button.textContent = '⏳ Processing...';
+                button.disabled = true;
+            } else {
+                button.textContent = button.dataset.originalText || button.textContent;
+                button.disabled = false;
+            }
+        }
+
         // Handle ingest form
         document.getElementById('ingestForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const formData = new FormData(e.target);
             const platform = formData.get('platform');
             const handleOrUrl = formData.get('handleOrUrl');
+            const submitButton = e.target.querySelector('button[type="submit"]');
 
             try {
+                setButtonLoading(submitButton, true);
+                showResult('ingestResult', '🔍 Adding channel...', true);
+
                 const response = await fetch(`/admin/ingest/${platform}?handleOrUrl=${encodeURIComponent(handleOrUrl)}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
                 });
+
                 const result = await response.text();
                 showResult('ingestResult', result, response.ok);
+
+                if (response.ok) {
+                    e.target.reset();
+                }
             } catch (error) {
+                console.error('Ingest error:', error);
                 showResult('ingestResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(submitButton, false);
             }
         });
 
-        // Discovery functions
+        // Discovery functions with improved error handling
         async function seedPopular() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', '🌱 Seeding popular channels... this will add ~50 high-quality channels.', true);
-                const response = await fetch('/admin/seed-popular', { method: 'POST' });
+
+                const response = await fetch('/admin/seed-popular', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Seed popular error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function massDiscovery() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', '🚀 Running mass discovery... this may take 10-15 minutes and add 500-1000 channels!', true);
-                const response = await fetch('/admin/mass-discovery', { method: 'POST' });
+
+                const response = await fetch('/admin/mass-discovery', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Mass discovery error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function discoverTrending() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', '🔥 Discovering trending channels...', true);
-                const response = await fetch('/admin/discover-trending', { method: 'POST' });
+
+                const response = await fetch('/admin/discover-trending', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Discover trending error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function discoverRelated() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', '🔗 Discovering related channels...', true);
-                const response = await fetch('/admin/discover-related', { method: 'POST' });
+
+                const response = await fetch('/admin/discover-related', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Discover related error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function discoverNow() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', '🎯 Running discovery...', true);
-                const response = await fetch('/admin/discover-now', { method: 'POST' });
+
+                const response = await fetch('/admin/discover-now', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Discover now error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function batchSnapshot() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('snapshotResult', '📸 Running batch snapshot... updating channel statistics.', true);
-                const response = await fetch('/admin/batch-snapshot', { method: 'POST' });
+
+                const response = await fetch('/admin/batch-snapshot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('Batch snapshot error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function snapshotAll() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('snapshotResult', '📸 Snapshotting all channels... this may take a while.', true);
-                const response = await fetch('/admin/snapshot-all', { method: 'POST' });
+
+                const response = await fetch('/admin/snapshot-all', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('Snapshot all error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function listChannels() {
+            const button = event.target;
             try {
-                const response = await fetch('/admin/channels');
+                setButtonLoading(button, true);
+
+                const response = await fetch('/admin/channels', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('List channels error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function healthCheck() {
+            const button = event.target;
             try {
-                const response = await fetch('/admin/health-check');
+                setButtonLoading(button, true);
+
+                const response = await fetch('/admin/health-check', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('Health check error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function systemStatus() {
+            const button = event.target;
             try {
-                const response = await fetch('/admin/system-status');
+                setButtonLoading(button, true);
+
+                const response = await fetch('/admin/system-status', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('System status error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function cleanupDuplicates() {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('snapshotResult', '🧹 Cleaning up duplicates...', true);
-                const response = await fetch('/admin/cleanup-duplicates', { method: 'POST' });
+
+                const response = await fetch('/admin/cleanup-duplicates', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('Cleanup error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function debugDb() {
+            const button = event.target;
             try {
-                const response = await fetch('/admin/debug-db');
+                setButtonLoading(button, true);
+
+                const response = await fetch('/admin/debug-db', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('snapshotResult', result, response.ok);
+                showResult('snapshotResult', result, true);
             } catch (error) {
+                console.error('Debug error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
         async function getStats() {
+            const button = event.target;
             try {
-                const response = await fetch('/admin/discovery-stats');
+                setButtonLoading(button, true);
+
+                const response = await fetch('/admin/discovery-stats', {
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Get stats error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
@@ -297,34 +527,65 @@
             event.preventDefault();
             const formData = new FormData(event.target);
             const searchTerm = formData.get('searchTerm');
+            const submitButton = event.target.querySelector('button[type="submit"]');
 
             try {
+                setButtonLoading(submitButton, true);
                 showResult('discoveryResult', `🔍 Discovering channels for "${searchTerm}"...`, true);
+
                 const response = await fetch(`/admin/discover?searchTerm=${encodeURIComponent(searchTerm)}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
+
+                // Clear the form on success
+                event.target.reset();
             } catch (error) {
+                console.error('Discovery error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(submitButton, false);
             }
         }
 
         // Quick discover function for preset terms
         async function quickDiscover(term) {
+            const button = event.target;
             try {
+                setButtonLoading(button, true);
                 showResult('discoveryResult', `🔍 Quick discovering "${term}" channels...`, true);
+
                 const response = await fetch(`/admin/discover?searchTerm=${encodeURIComponent(term)}`, {
-                    method: 'POST'
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
                 });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const result = await response.text();
-                showResult('discoveryResult', result, response.ok);
+                showResult('discoveryResult', result, true);
             } catch (error) {
+                console.error('Quick discover error:', error);
                 showResult('discoveryResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
             }
         }
 
-        // Show result helper
+        // Show result helper with better formatting
         function showResult(elementId, message, isSuccess) {
             const element = document.getElementById(elementId);
             element.innerHTML = message.replace(/\n/g, '<br>'); // Convert newlines to <br>
@@ -336,7 +597,19 @@
             element.style.fontFamily = 'monospace';
             element.style.fontSize = '0.9rem';
             element.style.whiteSpace = 'pre-line';
+            element.style.maxHeight = '400px';
+            element.style.overflowY = 'auto';
+
+            // Auto-scroll to the result
+            element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
+
+        // Add global error handler for unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+            console.error('Unhandled promise rejection:', event.reason);
+            // Optionally show user-friendly error
+            showResult('discoveryResult', 'Unexpected error occurred. Please check console and try again.', false);
+        });
     </script>
 </th:block>
 </html>

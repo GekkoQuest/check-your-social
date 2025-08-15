@@ -9,8 +9,8 @@ import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.repository.ChannelRepository;
 import quest.gekko.cys.repository.DailyStatRepository;
 import quest.gekko.cys.service.core.RankingService;
-import quest.gekko.cys.service.discovery.SmartDiscoveryService;
 import quest.gekko.cys.service.core.StatsService;
+import quest.gekko.cys.service.discovery.SmartDiscoveryService;
 import quest.gekko.cys.service.integration.connector.PlatformConnector;
 
 import java.time.LocalDate;
@@ -25,7 +25,7 @@ import java.util.concurrent.CompletableFuture;
 public class AdminController {
 
     private final List<PlatformConnector> connectors;
-    private final ChannelRepository channelRepository;
+    private final ChannelRepository channelRepo;
     private final StatsService statsService;
     private final RankingService rankingService;
     private final DailyStatRepository statRepo;
@@ -40,15 +40,15 @@ public class AdminController {
         if (chOpt.isEmpty()) return "Not found";
 
         // Save the channel
-        Channel saved = channelRepository.findByPlatformAndPlatformId(platform, chOpt.get().getPlatformId())
+        Channel saved = channelRepo.findByPlatformAndPlatformId(platform, chOpt.get().getPlatformId())
                 .map(existing -> {
                     existing.setTitle(chOpt.get().getTitle());
                     existing.setHandle(chOpt.get().getHandle());
                     existing.setAvatarUrl(chOpt.get().getAvatarUrl());
                     existing.setCountry(chOpt.get().getCountry());
-                    return channelRepository.save(existing);
+                    return channelRepo.save(existing);
                 })
-                .orElseGet(() -> channelRepository.save(chOpt.get()));
+                .orElseGet(() -> channelRepo.save(chOpt.get()));
 
         return "OK: " + saved.getHandle() + " (ID: " + saved.getId() + ")";
     }
@@ -57,7 +57,7 @@ public class AdminController {
     @PostMapping("/snapshot/{channelId}")
     @ResponseBody
     public String snapshot(@PathVariable Long channelId) {
-        Channel channel = channelRepository.findById(channelId).orElse(null);
+        Channel channel = channelRepo.findById(channelId).orElse(null);
         if (channel == null) return "Channel not found";
 
         var connector = connectors.stream()
@@ -85,7 +85,7 @@ public class AdminController {
         int processed = 0;
 
         for (PlatformConnector connector : connectors) {
-            var channels = channelRepository.findAll().stream()
+            var channels = channelRepo.findAll().stream()
                     .filter(c -> c.getPlatform() == connector.platform())
                     .toList();
 
@@ -111,7 +111,7 @@ public class AdminController {
     @GetMapping("/channels")
     @ResponseBody
     public String listChannels() {
-        var channels = channelRepository.findAll();
+        var channels = channelRepo.findAll();
         if (channels.isEmpty()) return "No channels found";
 
         StringBuilder sb = new StringBuilder("Channels:\n");
@@ -141,12 +141,13 @@ public class AdminController {
         }
     }
 
-    // Manual discovery trigger (async)
+    // Manual discovery trigger (fixed)
     @PostMapping("/discover-now")
     @ResponseBody
     public String discoverNow() {
         try {
-            return smartDiscoveryService.manualDiscovery();
+            String result = smartDiscoveryService.manualDiscovery();
+            return result;
         } catch (Exception e) {
             return "❌ Error: " + e.getMessage();
         }
@@ -216,8 +217,8 @@ public class AdminController {
     @ResponseBody
     public String healthCheck() {
         try {
-            long totalChannels = channelRepository.count();
-            long staleChannels = channelRepository.findAll().stream()
+            long totalChannels = channelRepo.count();
+            long staleChannels = channelRepo.findAll().stream()
                     .filter(c -> {
                         var latestStat = statRepo.findTopByChannelIdOrderBySnapshotDateDesc(c.getId());
                         return latestStat.isEmpty() ||
@@ -226,11 +227,11 @@ public class AdminController {
                     .count();
 
             long activeChannels = totalChannels - staleChannels;
-            long youtubeChannels = channelRepository.findAll().stream()
+            long youtubeChannels = channelRepo.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.YOUTUBE)
                     .count();
 
-            long twitchChannels = channelRepository.findAll().stream()
+            long twitchChannels = channelRepo.findAll().stream()
                     .filter(c -> c.getPlatform() == Platform.TWITCH)
                     .count();
 
@@ -259,14 +260,14 @@ public class AdminController {
         }
     }
 
-    // Discover channels by search term (async)
+    // Discover channels by search term (fixed)
     @PostMapping("/discover")
     @ResponseBody
     public String discoverChannels(@RequestParam String searchTerm,
                                    @RequestParam(defaultValue = "10") int maxResults) {
         try {
-            smartDiscoveryService.opportunisticDiscoveryAsync(searchTerm);
-            return "✅ Discovery started for '" + searchTerm + "' - running in background!";
+            smartDiscoveryService.opportunisticDiscovery(searchTerm);
+            return "✅ Discovery started for '" + searchTerm + "' - results will appear soon!";
         } catch (Exception e) {
             return "❌ Error: " + e.getMessage();
         }
@@ -278,7 +279,7 @@ public class AdminController {
     public String cleanupDuplicates() {
         try {
             // Find potential duplicates by platform and handle
-            var channels = channelRepository.findAll();
+            var channels = channelRepo.findAll();
             int duplicatesFound = 0;
             int duplicatesRemoved = 0;
 
@@ -306,7 +307,7 @@ public class AdminController {
 
                     for (var duplicate : duplicateList) {
                         if (!duplicate.getId().equals(toKeep.getId())) {
-                            channelRepository.delete(duplicate);
+                            channelRepo.delete(duplicate);
                             duplicatesRemoved++;
                         }
                     }
@@ -325,7 +326,7 @@ public class AdminController {
     @ResponseBody
     public String debugDb() {
         try {
-            var channels = channelRepository.findAll();
+            var channels = channelRepo.findAll();
             long totalChannels = channels.size();
 
             long channelsWithoutHandle = channels.stream()
@@ -377,7 +378,7 @@ public class AdminController {
     @ResponseBody
     public String systemStatus() {
         try {
-            long totalChannels = channelRepository.count();
+            long totalChannels = channelRepo.count();
             long totalStats = statRepo.count();
 
             // Check if rapid discovery mode is active

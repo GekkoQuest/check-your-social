@@ -44,10 +44,10 @@ public class HomeController {
             LocalDate cutoffDate = LocalDate.now().minusDays(7);
 
             // Top YouTube channels (limit 8 for homepage)
-            var topYouTubeChannels = channelRepository.leaderboard("YOUTUBE", cutoffDate, PageRequest.of(0, 8));
+            var topYouTubeChannels = channelRepository.leaderboard("YOUTUBE", PageRequest.of(0, 8));
 
             // Top Twitch channels (limit 8 for homepage)
-            var topTwitchChannels = channelRepository.leaderboard("TWITCH", cutoffDate, PageRequest.of(0, 8));
+            var topTwitchChannels = channelRepository.leaderboard("TWITCH", PageRequest.of(0, 8));
 
             // Add to model
             model.addAttribute("totalChannels", totalChannels);
