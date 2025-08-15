@@ -63,11 +63,13 @@
                 <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.5rem;" th:text="${isRapidMode} ? 'Auto-discovering every 15min' : 'Daily discovery at 3 AM UTC'">Auto-discovering</div>
             </div>
 
-            <!-- Action Button -->
+            <!-- Action Button (no admin mention) -->
             <div style="background: linear-gradient(135deg, var(--primary), var(--primary-600)); padding: 1.5rem; border-radius: 12px; text-align: center; color: white;">
                 <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✨</div>
-                <div style="font-weight: 600; margin-bottom: 0.5rem;">Discover More</div>
-                <a href="/admin" style="color: white; text-decoration: underline; font-size: 0.9rem;">Visit Admin Panel</a>
+                <div style="font-weight: 600; margin-bottom: 0.5rem;">Browse Leaderboards</div>
+                <a href="/leaderboard?platform=YOUTUBE" style="color: white; text-decoration: underline; font-size: 0.9rem;">Jump to YouTube</a>
+                <span aria-hidden="true"> · </span>
+                <a href="/leaderboard?platform=TWITCH" style="color: white; text-decoration: underline; font-size: 0.9rem;">Jump to Twitch</a>
             </div>
         </div>
     </section>
@@ -76,7 +78,7 @@
     <section th:if="${topYouTubeChannels != null and !topYouTubeChannels.isEmpty()}">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
 
-            <!-- Top YouTube Channels -->
+            <!-- Top YouTube Channels (uses ChannelWithStatsDTO fields) -->
             <div>
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
                     <h2 style="margin: 0;">📺 Top YouTube</h2>
@@ -90,29 +92,29 @@
 
                         <div style="font-weight: 700; color: var(--muted); min-width: 24px;" th:text="${iter.index + 1}">1</div>
 
-                        <img th:if="${channel.avatarUrl() != null}"
-                             th:src="${channel.avatarUrl()}"
+                        <img th:if="${channel.avatarUrl != null and !#strings.isEmpty(channel.avatarUrl)}"
+                             th:src="${channel.avatarUrl}"
                              alt="avatar"
                              style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;"/>
 
                         <div style="flex: 1; min-width: 0;">
                             <div>
-                                <a th:href="@{/channel/{id}(id=${channel.id()})}"
-                                   th:text="${channel.title()}"
+                                <a th:href="@{/channel/{id}(id=${channel.id})}"
+                                   th:text="${channel.title}"
                                    style="color: var(--text); text-decoration: none; font-weight: 600;">Channel</a>
                             </div>
-                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle()}">@handle</div>
+                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle}">@handle</div>
                         </div>
 
                         <div style="text-align: right; color: var(--primary); font-weight: 600; font-size: 0.9rem;">
-                            <span th:text="${channel.subscribers() != null ? #numbers.formatInteger(channel.subscribers(), 0, 'COMMA') : '0'}">0</span>
+                            <span th:text="${channel.subscribers != null ? #numbers.formatInteger(channel.subscribers, 0, 'COMMA') : '0'}">0</span>
                             <div style="font-size: 0.7rem; color: var(--muted);">subscribers</div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Top Twitch Channels -->
+            <!-- Top Twitch Channels (uses ChannelWithStatsDTO fields) -->
             <div th:if="${topTwitchChannels != null and !topTwitchChannels.isEmpty()}">
                 <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
                     <h2 style="margin: 0;">🎮 Top Twitch</h2>
@@ -126,22 +128,22 @@
 
                         <div style="font-weight: 700; color: var(--muted); min-width: 24px;" th:text="${iter.index + 1}">1</div>
 
-                        <img th:if="${channel.avatarUrl() != null}"
-                             th:src="${channel.avatarUrl()}"
+                        <img th:if="${channel.avatarUrl != null and !#strings.isEmpty(channel.avatarUrl)}"
+                             th:src="${channel.avatarUrl}"
                              alt="avatar"
                              style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;"/>
 
                         <div style="flex: 1; min-width: 0;">
                             <div>
-                                <a th:href="@{/channel/{id}(id=${channel.id()})}"
-                                   th:text="${channel.title()}"
+                                <a th:href="@{/channel/{id}(id=${channel.id})}"
+                                   th:text="${channel.title}"
                                    style="color: var(--text); text-decoration: none; font-weight: 600;">Channel</a>
                             </div>
-                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle()}">@handle</div>
+                            <div style="font-size: 0.8rem; color: var(--muted);" th:text="${channel.handle}">@handle</div>
                         </div>
 
                         <div style="text-align: right; color: var(--primary); font-weight: 600; font-size: 0.9rem;">
-                            <span th:text="${channel.followers() != null ? #numbers.formatInteger(channel.followers(), 0, 'COMMA') : '0'}">0</span>
+                            <span th:text="${channel.followers != null ? #numbers.formatInteger(channel.followers, 0, 'COMMA') : '0'}">0</span>
                             <div style="font-size: 0.7rem; color: var(--muted);">followers</div>
                         </div>
                     </div>
@@ -157,25 +159,29 @@
                 <div style="background: var(--card-bg); border-radius: 12px; border: 1px solid var(--border); padding: 2rem; text-align: center; color: var(--muted);">
                     <div style="font-size: 3rem; margin-bottom: 1rem;">🔍</div>
                     <p>No Twitch channels yet</p>
-                    <p style="font-size: 0.9rem;">Visit the admin panel to discover some!</p>
+                    <p style="font-size: 0.9rem;">Start by searching for a creator above.</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Getting Started Section -->
+    <!-- Getting Started Section (no admin mention) -->
     <section th:if="${totalChannels == 0}" style="background: var(--card-bg); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); text-align: center;">
         <div style="font-size: 4rem; margin-bottom: 1rem;">🚀</div>
         <h2>Get Started</h2>
         <p style="color: var(--muted); margin-bottom: 2rem; max-width: 500px; margin-left: auto; margin-right: auto;">
-            Your database is empty! Visit the admin panel to seed it with popular channels and start tracking growth.
+            Your database is empty! Try the quick search above or browse the leaderboards to begin tracking creators.
         </p>
-        <a href="/admin" class="button" style="background: var(--primary);">
-            🛠️ Go to Admin Panel
-        </a>
+        <div style="display:flex; gap:.75rem; justify-content:center; flex-wrap:wrap;">
+            <a href="/leaderboard?platform=YOUTUBE" class="button" style="background: var(--primary);">
+                📺 Browse YouTube
+            </a>
+            <a href="/leaderboard?platform=TWITCH" class="button" style="background: var(--primary);">
+                🎮 Browse Twitch
+            </a>
+        </div>
     </section>
 
-    <!-- Features Section -->
     <section style="margin-top: 3rem;">
         <h2 style="text-align: center; margin-bottom: 2rem;">✨ Features</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem;">
@@ -208,12 +214,12 @@
 
     <script>
         function searchChannel(handle) {
-            // Update the search input in the header and submit
-            const searchInput = document.querySelector('input[name="q"]');
-            const searchForm = document.querySelector('.search');
-            if (searchInput && searchForm) {
-                searchInput.value = handle;
-                searchForm.submit();
+            const modal = document.getElementById('search-modal');
+            const searchInput = modal ? modal.querySelector('input[name="q"]') : null;
+            if (modal && searchInput) {
+                searchInput.value = handle || '';
+                modal.setAttribute('aria-hidden', 'false');
+                setTimeout(() => searchInput.focus(), 10);
             }
         }
     </script>

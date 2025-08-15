@@ -1,8 +1,7 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -11,16 +10,13 @@ import org.springframework.web.bind.annotation.RequestParam;
 import quest.gekko.cys.domain.Channel;
 import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.repository.ChannelRepository;
-import quest.gekko.cys.repository.DailyStatRepository;
 import quest.gekko.cys.service.core.ChannelService;
 import quest.gekko.cys.service.discovery.SmartDiscoveryService;
 import quest.gekko.cys.service.integration.connector.PlatformConnector;
-import quest.gekko.cys.web.dto.ChannelWithLatestStat;
+import quest.gekko.cys.web.dto.ChannelWithStatsDTO;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Controller
 @RequiredArgsConstructor
@@ -29,7 +25,6 @@ public class SearchController {
     private final Map<Platform, PlatformConnector> connectorsByPlatform;
     private final ChannelService channelService;
     private final ChannelRepository channelRepo;
-    private final DailyStatRepository statRepo;
     private final SmartDiscoveryService smartDiscoveryService;
 
     @GetMapping("/search")
@@ -80,31 +75,15 @@ public class SearchController {
             }
         }
 
-        // For general search terms, use the leaderboard query and filter results
-        System.out.println("🔍 Searching existing database for: " + q);
+        // For general search terms, use the enhanced search method with stats
+        System.out.println("🔍 Searching existing database with stats for: " + q);
         try {
-            // Get all channels from leaderboard with stats
-            Page<ChannelWithLatestStat> allChannels = channelRepo.leaderboard(platform.name(), PageRequest.of(0, 1000));
+            // Use the enhanced search method that includes stats
+            Page<ChannelWithStatsDTO> results = channelRepo.search(q, PageRequest.of(page, size));
 
-            // Filter by search term (case-insensitive)
-            String searchTerm = q.toLowerCase();
-            List<ChannelWithLatestStat> filteredChannels = allChannels.getContent().stream()
-                    .filter(channel -> {
-                        String title = channel.title() != null ? channel.title().toLowerCase() : "";
-                        String handle = channel.handle() != null ? channel.handle().toLowerCase() : "";
-                        return title.contains(searchTerm) || handle.contains(searchTerm);
-                    })
-                    .collect(Collectors.toList());
+            System.out.println("📚 Found " + results.getContent().size() + " channels with stats");
 
-            System.out.println("📚 Found " + filteredChannels.size() + " existing channels with stats");
-
-            if (!filteredChannels.isEmpty()) {
-                // Paginate the filtered results
-                int start = page * size;
-                int end = Math.min(start + size, filteredChannels.size());
-                List<ChannelWithLatestStat> pageContent = filteredChannels.subList(start, end);
-
-                Page<ChannelWithLatestStat> results = new PageImpl<>(pageContent, PageRequest.of(page, size), filteredChannels.size());
+            if (!results.isEmpty()) {
                 model.addAttribute("page", results);
                 model.addAttribute("results", results);
                 System.out.println("✅ Returning database results with stats");

@@ -6,9 +6,9 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import quest.gekko.cys.domain.Platform;
-import quest.gekko.cys.web.dto.ChannelWithLatestStat;
 import quest.gekko.cys.repository.ChannelRepository;
 import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.web.dto.ChannelWithStatsDTO;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -41,33 +41,35 @@ public class HomeController {
                     .filter(s -> s.getSnapshotDate().isAfter(LocalDate.now().minusDays(7)))
                     .count();
 
-            LocalDate cutoffDate = LocalDate.now().minusDays(7);
+            // Top YouTube channels - now using concrete DTO
+            var topYouTubeChannels = channelRepository.leaderboard("YOUTUBE", PageRequest.of(0, 8))
+                    .getContent();
 
-            // Top YouTube channels (limit 8 for homepage)
-            var topYouTubeChannels = channelRepository.leaderboard("YOUTUBE", PageRequest.of(0, 8));
-
-            // Top Twitch channels (limit 8 for homepage)
-            var topTwitchChannels = channelRepository.leaderboard("TWITCH", PageRequest.of(0, 8));
+            // Top Twitch channels - now using concrete DTO
+            var topTwitchChannels = channelRepository.leaderboard("TWITCH", PageRequest.of(0, 8))
+                    .getContent();
 
             // Add to model
             model.addAttribute("totalChannels", totalChannels);
             model.addAttribute("youtubeChannels", youtubeChannels);
             model.addAttribute("twitchChannels", twitchChannels);
             model.addAttribute("recentStats", recentStats);
-            model.addAttribute("topYouTubeChannels", topYouTubeChannels.getContent());
-            model.addAttribute("topTwitchChannels", topTwitchChannels.getContent());
+            model.addAttribute("topYouTubeChannels", topYouTubeChannels);
+            model.addAttribute("topTwitchChannels", topTwitchChannels);
 
             // Show rapid mode indicator
             model.addAttribute("isRapidMode", totalChannels < 1000);
 
         } catch (Exception e) {
             // Fallback if stats fail
+            System.err.println("Homepage stats failed: " + e.getMessage());
+            e.printStackTrace();
             model.addAttribute("totalChannels", 0L);
             model.addAttribute("youtubeChannels", 0L);
             model.addAttribute("twitchChannels", 0L);
             model.addAttribute("recentStats", 0L);
-            model.addAttribute("topYouTubeChannels", List.<ChannelWithLatestStat>of());
-            model.addAttribute("topTwitchChannels", List.<ChannelWithLatestStat>of());
+            model.addAttribute("topYouTubeChannels", List.<ChannelWithStatsDTO>of());
+            model.addAttribute("topTwitchChannels", List.<ChannelWithStatsDTO>of());
             model.addAttribute("isRapidMode", true);
         }
 

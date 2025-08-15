@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:with="title='Error'"
+      th:replace="~{fragments/_layout :: layout(~{::content})}">
+<th:block th:fragment="content">
+    <div style="text-align: center; padding: 2rem;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">
+            <span th:if="${status == 404}">🔍</span>
+            <span th:if="${status == 500}">⚠️</span>
+            <span th:if="${status != 404 and status != 500}">❌</span>
+        </div>
+
+        <h1 th:text="${status != null ? ('Error ' + status) : 'Something went wrong'}">Error</h1>
+
+        <p th:if="${status == 404}" style="color: var(--muted); margin-bottom: 2rem;">
+            The page you're looking for doesn't exist.
+        </p>
+
+        <p th:if="${status == 500}" style="color: var(--muted); margin-bottom: 2rem;">
+            We're experiencing some technical difficulties. Please try again later.
+        </p>
+
+        <p th:if="${status != 404 and status != 500}" style="color: var(--muted); margin-bottom: 2rem;">
+            <span th:text="${error != null ? error : 'An unexpected error occurred'}">An error occurred</span>
+        </p>
+
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+            <a href="/" class="button" style="background: var(--primary);">
+                🏠 Go Home
+            </a>
+            <a href="/leaderboard" class="button">
+                📊 View Leaderboard
+            </a>
+            <button onclick="history.back()" class="button">
+                ← Go Back
+            </button>
+        </div>
+
+        <!-- Debug info for admins -->
+        <div th:if="${status == 500}" style="margin-top: 2rem; padding: 1rem; background: var(--card-bg); border-radius: 8px; border: 1px solid var(--border); text-align: left; max-width: 600px; margin-left: auto; margin-right: auto;">
+            <h4>For Administrators:</h4>
+            <p style="font-size: 0.9rem; color: var(--muted);">
+                This error typically occurs when there's an issue with database queries or template rendering.
+                Check the application logs for more details. Common causes include:
+            </p>
+            <ul style="font-size: 0.9rem; color: var(--muted); text-align: left;">
+                <li>Database connection issues</li>
+                <li>Missing or corrupted data</li>
+                <li>Template expression errors</li>
+                <li>API key configuration problems</li>
+            </ul>
+            <p style="font-size: 0.9rem;">
+                <a href="/admin" style="color: var(--primary);">Visit Admin Panel</a> to check system status.
+            </p>
+        </div>
+    </div>
+</th:block>
+</html>

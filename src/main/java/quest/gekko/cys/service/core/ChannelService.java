@@ -13,6 +13,7 @@ import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.dto.ChannelDTO;
 import quest.gekko.cys.repository.ChannelRepository;
 import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.web.dto.ChannelWithStatsDTO;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,7 +37,8 @@ public class ChannelService {
         return channelRepository.findByPlatformAndHandleIgnoreCase(platform, handle);
     }
 
-    public Page<Channel> search(String query, Pageable pageable) {
+    // Updated to return ChannelWithLatestStat to match repository
+    public Page<ChannelWithStatsDTO> search(String query, Pageable pageable) {
         return channelRepository.search(query, pageable);
     }
 

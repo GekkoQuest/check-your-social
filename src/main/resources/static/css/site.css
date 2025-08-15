@@ -1,4 +1,3 @@
-
 /* =============================================================
    OBSIDIAN ORBIT — immersive dashboard from zero
    Author: ChatGPT
@@ -17,6 +16,16 @@
   --ok: #6ef2b2;
   --ring: 0 0 0 2px rgba(123,223,251,.35);
   --radius: 18px;
+  
+  /* Additional variables for templates */
+  --primary: #7bdffb;
+  --primary-600: #5bb3d4;
+  --success: #6ef2b2;
+  --text: #e4ebf7;
+  --card-bg: rgba(255,255,255,.05);
+  --border: rgba(255,255,255,.1);
+  --surface: rgba(0,0,0,.35);
+  --shadow: 0 30px 80px rgba(0,0,0,.6);
 }
 
 * { box-sizing: border-box; }
@@ -162,6 +171,15 @@ a:hover { text-decoration: underline }
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 12px;
   padding: 10px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+.button:hover, button:hover {
+  background: rgba(255,255,255,.08);
+  transform: translateY(-1px);
 }
 .button.primary, button.primary { background: var(--accent); color: #0b0f18; font-weight: 800 }
 .button.danger { background: var(--danger); color: #0b0f18; font-weight: 800 }
@@ -180,6 +198,18 @@ label { color: var(--muted); font-size: 14px }
 /* Alerts */
 .alert { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); padding: 12px; border-radius: 12px }
 .alert-danger { border-color: rgba(255,123,154,.45); background: rgba(255,123,154,.12); color: #ffd9e4 }
+
+/* Avatar styles */
+.avatar-sm { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+.avatar-lg { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+
+/* Hero section */
+.hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
 
 /* Tables -> beautiful inside panel */
 .table-wrap { border: 1px solid rgba(255,255,255,.12); border-radius: 12px; overflow: auto }

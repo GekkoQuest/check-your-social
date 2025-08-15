@@ -1,4 +1,4 @@
-package quest.gekko.cys.controller;
+package quest.gekko.cys.web.controller;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.repository.ChannelRepository;
-import quest.gekko.cys.web.dto.ChannelWithLatestStat;
+import quest.gekko.cys.web.dto.ChannelWithStatsDTO;
 
 @Controller
 @RequiredArgsConstructor
@@ -23,24 +23,11 @@ public class LeaderboardController {
                               @RequestParam(required = false) String q,
                               Model m) {
         try {
-            Page<ChannelWithLatestStat> p;
+            Page<ChannelWithStatsDTO> p;
 
-            // If there's a search query, handle it as search results
+            // If there's a search query, use the search method
             if (q != null && !q.trim().isEmpty()) {
-                // For search queries, use the search method instead of leaderboard
-                p = channelRepo.search(q.trim(), PageRequest.of(page, size))
-                        .map(channel -> new ChannelWithLatestStatImpl(
-                                channel.getId(),
-                                channel.getPlatform(),
-                                channel.getHandle(),
-                                channel.getTitle(),
-                                channel.getAvatarUrl(),
-                                channel.getCounters().getOrDefault("subscribers", 0L),
-                                channel.getCounters().getOrDefault("followers", 0L),
-                                channel.getCounters().getOrDefault("views", 0L),
-                                channel.getCounters().getOrDefault("videos", 0L)
-                        ));
-
+                p = channelRepo.search(q.trim(), PageRequest.of(page, size));
                 m.addAttribute("q", q);
                 m.addAttribute("isSearch", true);
             } else {
@@ -52,12 +39,12 @@ public class LeaderboardController {
             // Debug: log the results
             System.out.println("Leaderboard query returned " + p.getContent().size() + " items");
             for (var item : p.getContent()) {
-                System.out.println("- " + item.id() + ": " + item.title() + " (" + item.handle() + ")");
+                System.out.println("- " + item.getId() + ": " + item.getTitle() + " (" + item.getHandle() + ") - Subs: " + item.getSubscribers());
             }
 
             m.addAttribute("platform", platform);
             m.addAttribute("page", p);
-            m.addAttribute("results", p); // Add this for template compatibility
+            m.addAttribute("results", p);
             return "leaderboard";
         } catch (Exception e) {
             // Fallback if leaderboard query fails
@@ -71,41 +58,5 @@ public class LeaderboardController {
             m.addAttribute("isSearch", q != null && !q.trim().isEmpty());
             return "leaderboard";
         }
-    }
-
-    // Implementation class for search results
-    private static class ChannelWithLatestStatImpl implements ChannelWithLatestStat {
-        private final Long id;
-        private final Platform platform;
-        private final String handle;
-        private final String title;
-        private final String avatarUrl;
-        private final Long subscribers;
-        private final Long followers;
-        private final Long views;
-        private final Long videos;
-
-        public ChannelWithLatestStatImpl(Long id, Platform platform, String handle, String title,
-                                         String avatarUrl, Long subscribers, Long followers, Long views, Long videos) {
-            this.id = id;
-            this.platform = platform;
-            this.handle = handle;
-            this.title = title;
-            this.avatarUrl = avatarUrl;
-            this.subscribers = subscribers;
-            this.followers = followers;
-            this.views = views;
-            this.videos = videos;
-        }
-
-        @Override public Long id() { return id; }
-        @Override public Platform platform() { return platform; }
-        @Override public String handle() { return handle; }
-        @Override public String title() { return title; }
-        @Override public String avatarUrl() { return avatarUrl; }
-        @Override public Long subscribers() { return subscribers; }
-        @Override public Long followers() { return followers; }
-        @Override public Long views() { return views; }
-        @Override public Long videos() { return videos; }
     }
 }
