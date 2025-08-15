@@ -15,7 +15,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class YouTubeConnector implements PlatformConnector {
     private final WebClient http;
-    @Value("${sa.youtube.apiKey:}") String apiKey;
+    @Value("${social.youtube.api-key:}") String apiKey;
 
     @Override public Platform platform() { return Platform.YOUTUBE; }
 
@@ -105,14 +105,63 @@ public class YouTubeConnector implements PlatformConnector {
         c.setPlatformId(id);
         c.setTitle((String) snip.get("title"));
 
-        // prefer the `customUrl` if present (e.g., "@mkbhd")
-        Object customUrl = snip.get("customUrl");
-        c.setHandle(customUrl != null ? customUrl.toString() : ("@" + c.getTitle().toLowerCase().replaceAll("\\s+","")));
+        // Enhanced handle logic - try multiple approaches
+        String handle = determineChannelHandle(snip, id);
+        c.setHandle(handle);
 
         Map<String, Map<String,String>> thumbs = (Map<String, Map<String,String>>) snip.get("thumbnails");
         if (thumbs != null && thumbs.get("default") != null) c.setAvatarUrl(thumbs.get("default").get("url"));
         c.setCountry((String) snip.getOrDefault("country", null));
         return c;
+    }
+
+    /**
+     * Determine the best handle for a channel using multiple strategies
+     */
+    private String determineChannelHandle(Map<String,Object> snippet, String channelId) {
+        // Strategy 1: Use customUrl if available (best option)
+        Object customUrl = snippet.get("customUrl");
+        if (customUrl != null && !customUrl.toString().isBlank()) {
+            String url = customUrl.toString();
+            // Ensure it starts with @
+            return url.startsWith("@") ? url : "@" + url;
+        }
+
+        // Strategy 2: Try to extract from channel description or about
+        String description = (String) snippet.get("description");
+        if (description != null) {
+            // Look for @mentions in description
+            java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("@([a-zA-Z0-9_]{1,20})");
+            java.util.regex.Matcher matcher = pattern.matcher(description);
+            if (matcher.find()) {
+                return "@" + matcher.group(1);
+            }
+        }
+
+        // Strategy 3: Create handle from channel title (clean version)
+        String title = (String) snippet.get("title");
+        if (title != null && !title.isBlank()) {
+            // Clean the title and make it handle-friendly
+            String cleanTitle = title
+                    .replaceAll("[^a-zA-Z0-9\\s]", "") // Remove special chars except spaces
+                    .trim()
+                    .replaceAll("\\s+", "") // Remove all spaces
+                    .toLowerCase();
+
+            if (cleanTitle.length() > 3 && cleanTitle.length() <= 20) {
+                return "@" + cleanTitle;
+            } else if (cleanTitle.length() > 20) {
+                return "@" + cleanTitle.substring(0, 20);
+            }
+        }
+
+        // Strategy 4: Use channel ID as last resort (shortened)
+        if (channelId != null && channelId.length() > 8) {
+            return "@" + channelId.substring(2, 10).toLowerCase(); // Skip "UC" prefix, take 8 chars
+        }
+
+        // Final fallback
+        return "@unknown" + System.currentTimeMillis() % 10000; // Add timestamp to avoid duplicates
     }
 
     @Override
@@ -152,27 +201,39 @@ public class YouTubeConnector implements PlatformConnector {
         List<Map<String,Object>> items = (List<Map<String,Object>>) (search != null ? search.get("items") : List.of());
         if (items == null || items.isEmpty()) return List.of();
 
-        // You can either: (A) hydrate each by id (extra API call per item), or
-        // (B) map from the search snippet (fast). We'll do (B) for speed.
-        return items.stream()
+        // Extract channel IDs from search results
+        List<String> channelIds = items.stream()
                 .map(it -> {
                     Map<String,Object> idObj = (Map<String,Object>) it.get("id");
-                    Map<String,Object> snip  = (Map<String,Object>) it.get("snippet");
-                    if (idObj == null || snip == null) return null;
-
-                    String channelId = (String) idObj.get("channelId");
-                    if (channelId == null || channelId.isBlank()) return null;
-
-                    Channel c = new Channel();
-                    c.setPlatform(Platform.YOUTUBE);
-                    c.setPlatformId(channelId);
-                    c.setTitle((String) snip.getOrDefault("channelTitle", ""));
-                    // search results don’t include customUrl; keep handle null here (it’s fine for the list)
-                    Map<String, Map<String,String>> thumbs = (Map<String, Map<String,String>>) snip.get("thumbnails");
-                    if (thumbs != null && thumbs.get("default") != null) c.setAvatarUrl(thumbs.get("default").get("url"));
-                    return c;
+                    return idObj != null ? (String) idObj.get("channelId") : null;
                 })
-                .filter(c -> c != null)
+                .filter(id -> id != null && !id.isBlank())
+                .toList();
+
+        if (channelIds.isEmpty()) return List.of();
+
+        // Batch fetch full channel details (up to 50 at once)
+        String channelIdsParam = String.join(",", channelIds);
+
+        Map<?,?> channelsResponse = http.get()
+                .uri(uri -> uri.scheme("https").host("www.googleapis.com").path("/youtube/v3/channels")
+                        .queryParam("part","snippet,statistics")
+                        .queryParam("id", channelIdsParam)
+                        .queryParam("key", apiKey)
+                        .build())
+                .retrieve()
+                .bodyToMono(Map.class)
+                .block();
+
+        List<Map<String,Object>> channelItems = (List<Map<String,Object>>)
+                (channelsResponse != null ? channelsResponse.get("items") : List.of());
+
+        if (channelItems == null || channelItems.isEmpty()) return List.of();
+
+        // Map to full Channel objects with enhanced handle logic
+        return channelItems.stream()
+                .map(this::mapChannel)
+                .filter(channel -> channel != null && !channel.getTitle().isBlank())
                 .toList();
     }
 }

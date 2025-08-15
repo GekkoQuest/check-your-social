@@ -126,6 +126,73 @@ public class AdminController {
         return sb.toString();
     }
 
+    // DEBUG YOUTUBE API
+    @PostMapping("/debug-youtube")
+    @ResponseBody
+    public String debugYouTube(@RequestParam String handle) {
+        try {
+            var youtubeConnector = connectors.stream()
+                    .filter(c -> c.platform() == Platform.YOUTUBE)
+                    .findFirst()
+                    .orElse(null);
+
+            if (youtubeConnector == null) {
+                return "❌ YouTube connector not found";
+            }
+
+            StringBuilder result = new StringBuilder();
+            result.append("🔍 Testing YouTube API for: ").append(handle).append("\n\n");
+
+            // Test API key
+            result.append("API Key Status: ");
+            try {
+                java.lang.reflect.Field field = youtubeConnector.getClass().getDeclaredField("apiKey");
+                field.setAccessible(true);
+                String apiKey = (String) field.get(youtubeConnector);
+                result.append(apiKey != null && !apiKey.isBlank() ? "✅ Present" : "❌ Missing/Empty").append("\n");
+                result.append("API Key length: ").append(apiKey != null ? apiKey.length() : 0).append("\n\n");
+            } catch (Exception e) {
+                result.append("❌ Error checking API key: ").append(e.getMessage()).append("\n\n");
+            }
+
+            // Test resolveAndHydrate
+            result.append("Testing resolveAndHydrate:\n");
+            try {
+                var channel = youtubeConnector.resolveAndHydrate(handle);
+                if (channel.isPresent()) {
+                    var c = channel.get();
+                    result.append("✅ Found channel!\n");
+                    result.append("- ID: ").append(c.getPlatformId()).append("\n");
+                    result.append("- Title: ").append(c.getTitle()).append("\n");
+                    result.append("- Handle: ").append(c.getHandle()).append("\n");
+                    result.append("- Avatar: ").append(c.getAvatarUrl() != null ? "✅" : "❌").append("\n");
+                } else {
+                    result.append("❌ Channel not found via resolveAndHydrate\n");
+                }
+            } catch (Exception e) {
+                result.append("❌ Error in resolveAndHydrate: ").append(e.getMessage()).append("\n");
+                result.append("Stack trace: ").append(java.util.Arrays.toString(e.getStackTrace())).append("\n");
+            }
+
+            // Test search
+            result.append("\nTesting search API:\n");
+            try {
+                var channels = youtubeConnector.search(handle, 5);
+                result.append("Found ").append(channels.size()).append(" channels via search\n");
+                for (var c : channels) {
+                    result.append("- ").append(c.getTitle()).append(" (").append(c.getHandle()).append(")\n");
+                }
+            } catch (Exception e) {
+                result.append("❌ Error in search: ").append(e.getMessage()).append("\n");
+            }
+
+            return result.toString();
+
+        } catch (Exception e) {
+            return "❌ Debug failed: " + e.getMessage() + "\n" + java.util.Arrays.toString(e.getStackTrace());
+        }
+    }
+
     // ENHANCED ASYNC DISCOVERY METHODS
 
     // Seed popular channels (async)
@@ -271,6 +338,221 @@ public class AdminController {
         } catch (Exception e) {
             return "❌ Error: " + e.getMessage();
         }
+    }
+
+    // HANDLE FIXING METHODS
+    @PostMapping("/fix-unknown-handles")
+    @ResponseBody
+    public String fixUnknownHandles(@RequestParam(defaultValue = "100") int batchSize) {
+        try {
+            var youtubeConnector = connectors.stream()
+                    .filter(c -> c.platform() == Platform.YOUTUBE)
+                    .findFirst()
+                    .orElse(null);
+
+            if (youtubeConnector == null) {
+                return "❌ YouTube connector not available";
+            }
+
+            // Find ALL channels with unknown handles (not just first 100)
+            var allChannels = channelRepo.findAll();
+            var channelsWithUnknownHandles = allChannels.stream()
+                    .filter(c -> c.getPlatform() == Platform.YOUTUBE)
+                    .filter(c -> c.getHandle() == null ||
+                            c.getHandle().equals("@unknown") ||
+                            c.getHandle().startsWith("@unknown") ||
+                            c.getHandle().equals("@Channel") ||
+                            c.getHandle().matches("@[a-zA-Z0-9]{8}") || // Likely auto-generated from channel ID
+                            c.getHandle().matches("@UC[a-zA-Z0-9]{6,}")) // Channel ID based handles
+                    .toList();
+
+            System.out.println("Found " + channelsWithUnknownHandles.size() + " channels with unknown handles");
+
+            if (channelsWithUnknownHandles.isEmpty()) {
+                return "✅ No channels with unknown handles found!";
+            }
+
+            // Process in batches to avoid overwhelming the API
+            int totalFixed = 0;
+            int batchCount = 0;
+            int maxBatches = (int) Math.ceil((double) channelsWithUnknownHandles.size() / batchSize);
+
+            for (int i = 0; i < channelsWithUnknownHandles.size(); i += batchSize) {
+                batchCount++;
+                int endIndex = Math.min(i + batchSize, channelsWithUnknownHandles.size());
+                var batch = channelsWithUnknownHandles.subList(i, endIndex);
+
+                System.out.println("Processing batch " + batchCount + "/" + maxBatches + " (" + batch.size() + " channels)");
+
+                int batchFixed = 0;
+                for (Channel channel : batch) {
+                    try {
+                        // Try to get better handle by re-resolving the channel
+                        var updatedChannel = youtubeConnector.resolveAndHydrate(channel.getPlatformId());
+                        if (updatedChannel.isPresent()) {
+                            var updated = updatedChannel.get();
+                            boolean wasUpdated = false;
+
+                            // Update handle if we got a better one
+                            if (updated.getHandle() != null &&
+                                    !updated.getHandle().equals("@unknown") &&
+                                    !updated.getHandle().startsWith("@unknown") &&
+                                    !updated.getHandle().equals(channel.getHandle())) {
+
+                                channel.setHandle(updated.getHandle());
+                                wasUpdated = true;
+                            }
+
+                            // Update other missing fields while we're at it
+                            if (channel.getTitle() == null || channel.getTitle().equals("Unknown")) {
+                                channel.setTitle(updated.getTitle());
+                                wasUpdated = true;
+                            }
+                            if (channel.getAvatarUrl() == null || channel.getAvatarUrl().isBlank()) {
+                                channel.setAvatarUrl(updated.getAvatarUrl());
+                                wasUpdated = true;
+                            }
+
+                            if (wasUpdated) {
+                                channelRepo.save(channel);
+                                batchFixed++;
+                                totalFixed++;
+                            }
+                        } else {
+                            // If we couldn't resolve, generate a better handle from the title
+                            String betterHandle = generateHandleFromTitle(channel.getTitle(), channel.getPlatformId());
+                            if (!betterHandle.equals(channel.getHandle())) {
+                                channel.setHandle(betterHandle);
+                                channelRepo.save(channel);
+                                batchFixed++;
+                                totalFixed++;
+                            }
+                        }
+
+                        // Small delay to be nice to API
+                        Thread.sleep(100);
+
+                    } catch (Exception e) {
+                        System.err.println("Error fixing handle for " + channel.getPlatformId() + ": " + e.getMessage());
+                    }
+                }
+
+                System.out.println("Batch " + batchCount + " completed: fixed " + batchFixed + " channels");
+
+                // Longer pause between batches
+                if (i + batchSize < channelsWithUnknownHandles.size()) {
+                    Thread.sleep(1000);
+                }
+            }
+
+            return String.format("✅ Fixed handles for %d/%d channels across %d batches",
+                    totalFixed, channelsWithUnknownHandles.size(), batchCount);
+
+        } catch (Exception e) {
+            return "❌ Error during handle fix: " + e.getMessage();
+        }
+    }
+
+    // Process channels by page range
+    @PostMapping("/fix-handles-range")
+    @ResponseBody
+    public String fixHandlesInRange(@RequestParam int startPage, @RequestParam int endPage, @RequestParam(defaultValue = "20") int pageSize) {
+        try {
+            var youtubeConnector = connectors.stream()
+                    .filter(c -> c.platform() == Platform.YOUTUBE)
+                    .findFirst()
+                    .orElse(null);
+
+            if (youtubeConnector == null) {
+                return "❌ YouTube connector not available";
+            }
+
+            // Get channels in the specified page range
+            int startIndex = startPage * pageSize;
+            int totalChannels = (int) channelRepo.count();
+
+            if (startIndex >= totalChannels) {
+                return "❌ Start page exceeds total channels";
+            }
+
+            var channelsInRange = channelRepo.findAll().stream()
+                    .filter(c -> c.getPlatform() == Platform.YOUTUBE)
+                    .skip(startIndex)
+                    .limit((endPage - startPage + 1) * pageSize)
+                    .toList();
+
+            int fixed = 0;
+            for (Channel channel : channelsInRange) {
+                try {
+                    // Check if this channel needs fixing
+                    if (channel.getHandle() == null ||
+                            channel.getHandle().equals("@unknown") ||
+                            channel.getHandle().startsWith("@unknown") ||
+                            channel.getHandle().matches("@[a-zA-Z0-9]{8}")) {
+
+                        var updated = youtubeConnector.resolveAndHydrate(channel.getPlatformId());
+                        if (updated.isPresent()) {
+                            var u = updated.get();
+                            if (u.getHandle() != null && !u.getHandle().startsWith("@unknown")) {
+                                channel.setHandle(u.getHandle());
+                                channel.setTitle(u.getTitle());
+                                channel.setAvatarUrl(u.getAvatarUrl());
+                                channelRepo.save(channel);
+                                fixed++;
+                            }
+                        }
+                    }
+
+                    Thread.sleep(150);
+                } catch (Exception e) {
+                    System.err.println("Error processing channel " + channel.getId() + ": " + e.getMessage());
+                }
+            }
+
+            return String.format("✅ Fixed %d channels in pages %d-%d", fixed, startPage, endPage);
+
+        } catch (Exception e) {
+            return "❌ Error: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Generate a reasonable handle from channel title
+     */
+    private String generateHandleFromTitle(String title, String channelId) {
+        if (title == null || title.isBlank() || title.equals("Unknown")) {
+            // Use shortened channel ID as last resort
+            if (channelId != null && channelId.length() > 8) {
+                return "@" + channelId.substring(2, 10).toLowerCase();
+            }
+            return "@unknown" + System.currentTimeMillis() % 10000;
+        }
+
+        // Clean the title and make it handle-friendly
+        String cleanTitle = title
+                .replaceAll("[^a-zA-Z0-9\\s]", "") // Remove special chars except spaces
+                .trim()
+                .replaceAll("\\s+", "") // Remove all spaces
+                .toLowerCase();
+
+        if (cleanTitle.length() > 3 && cleanTitle.length() <= 20) {
+            return "@" + cleanTitle;
+        } else if (cleanTitle.length() > 20) {
+            return "@" + cleanTitle.substring(0, 20);
+        } else if (cleanTitle.length() > 0) {
+            // Title too short, pad with channel ID
+            String shortId = channelId != null && channelId.length() > 8
+                    ? channelId.substring(2, 6).toLowerCase()
+                    : "1234";
+            return "@" + cleanTitle + shortId;
+        }
+
+        // Fallback to channel ID
+        if (channelId != null && channelId.length() > 8) {
+            return "@" + channelId.substring(2, 10).toLowerCase();
+        }
+
+        return "@unknown" + System.currentTimeMillis() % 10000;
     }
 
     // Database cleanup operations - NEW

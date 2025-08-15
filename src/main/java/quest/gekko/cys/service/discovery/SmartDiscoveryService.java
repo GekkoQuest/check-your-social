@@ -411,7 +411,8 @@ public class SmartDiscoveryService {
                 );
 
                 if (existing.isEmpty()) {
-                    channelService.upsertChannelIdentityOnly(channel);
+                    // Use full upsert instead of identity-only to get complete channel data
+                    channelService.upsertChannel(channel);
                     discovered++;
                 }
             }

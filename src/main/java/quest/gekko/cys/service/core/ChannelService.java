@@ -13,9 +13,11 @@ import quest.gekko.cys.domain.Platform;
 import quest.gekko.cys.dto.ChannelDTO;
 import quest.gekko.cys.repository.ChannelRepository;
 import quest.gekko.cys.repository.DailyStatRepository;
+import quest.gekko.cys.service.integration.connector.PlatformConnector;
 import quest.gekko.cys.web.dto.ChannelWithStatsDTO;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -26,6 +28,7 @@ public class ChannelService {
 
     private final ChannelRepository channelRepository;
     private final DailyStatRepository statRepository;
+    private final Map<Platform, PlatformConnector> connectorsByPlatform;
 
     @Cacheable(value = "channels", key = "#id")
     public Optional<Channel> findById(Long id) {
@@ -58,6 +61,25 @@ public class ChannelService {
     public Channel upsertChannelIdentityOnly(Channel channel) {
         return channelRepository.findByPlatformAndPlatformId(channel.getPlatform(), channel.getPlatformId())
                 .orElseGet(() -> {
+                    // Try to get full channel data first before creating minimal
+                    if (channel.getHandle() == null || channel.getHandle().equals("@unknown") ||
+                            channel.getTitle() == null || channel.getTitle().equals("Unknown")) {
+
+                        // Attempt to hydrate the channel with full data
+                        try {
+                            var connector = connectorsByPlatform.get(channel.getPlatform());
+                            if (connector != null) {
+                                var fullChannel = connector.resolveAndHydrate(channel.getPlatformId());
+                                if (fullChannel.isPresent()) {
+                                    return channelRepository.save(fullChannel.get());
+                                }
+                            }
+                        } catch (Exception e) {
+                            log.warn("Failed to hydrate channel {}: {}", channel.getPlatformId(), e.getMessage());
+                        }
+                    }
+
+                    // Fall back to minimal if hydration fails
                     Channel minimal = createMinimalChannel(channel);
                     return channelRepository.save(minimal);
                 });
@@ -99,8 +121,16 @@ public class ChannelService {
         Channel minimal = new Channel();
         minimal.setPlatform(template.getPlatform());
         minimal.setPlatformId(template.getPlatformId());
-        minimal.setTitle(template.getTitle() != null ? template.getTitle() : "Unknown");
-        minimal.setHandle(template.getHandle() != null ? template.getHandle() : "@unknown");
+
+        // Better fallback values
+        minimal.setTitle(template.getTitle() != null && !template.getTitle().isBlank()
+                ? template.getTitle()
+                : "Channel " + template.getPlatformId().substring(0, Math.min(8, template.getPlatformId().length())));
+
+        minimal.setHandle(template.getHandle() != null && !template.getHandle().isBlank()
+                ? template.getHandle()
+                : "@" + template.getPlatformId().substring(0, Math.min(8, template.getPlatformId().length())));
+
         minimal.setAvatarUrl(template.getAvatarUrl());
         minimal.setCountry(template.getCountry());
         return minimal;

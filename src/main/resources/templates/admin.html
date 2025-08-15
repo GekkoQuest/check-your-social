@@ -24,6 +24,36 @@
             </div>
         </section>
 
+        <!-- Debug & Testing Section -->
+        <section style="border: 1px solid #dc3545; padding: 1.5rem; border-radius: 8px;">
+            <h3>🔧 Debug & Testing</h3>
+            <p class="muted">Diagnostic tools to identify and fix issues</p>
+
+            <!-- YouTube API Testing -->
+            <div style="margin: 1rem 0;">
+                <h4>YouTube API Testing</h4>
+                <form onsubmit="debugYouTube(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input name="handle" placeholder="@mkbhd or channel URL" required style="flex: 1;"/>
+                    <button type="submit">🔍 Test YouTube API</button>
+                </form>
+            </div>
+
+            <!-- Handle Fixing by Page Range -->
+            <div style="margin: 1rem 0;">
+                <h4>Fix Handles by Page Range</h4>
+                <form onsubmit="fixHandlesRange(event)" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                    <input name="startPage" type="number" placeholder="Start page (4)" min="0" required style="width: 100px;"/>
+                    <input name="endPage" type="number" placeholder="End page (10)" min="0" required style="width: 100px;"/>
+                    <button type="submit">🔧 Fix Page Range</button>
+                </form>
+                <small style="color: #666; margin-top: 0.5rem; display: block;">
+                    Use this to fix specific page ranges where you see unknown handles. Pages start at 0.
+                </small>
+            </div>
+
+            <div id="debugResult" style="margin-top: 1rem; padding: 0.5rem; display: none;"></div>
+        </section>
+
         <!-- Ingest new channel -->
         <section style="border: 1px solid #ddd; padding: 1.5rem; border-radius: 8px;">
             <h3>➕ Add Individual Channel</h3>
@@ -102,6 +132,7 @@
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem;">
                 <button onclick="batchSnapshot()">📸 Batch Snapshot</button>
                 <button onclick="snapshotAll()">📸 Snapshot All</button>
+                <button onclick="fixUnknownHandles()">🔧 Fix Unknown Handles</button>
                 <button onclick="listChannels()">📋 List Channels</button>
                 <button onclick="healthCheck()">🏥 Health Check</button>
                 <button onclick="systemStatus()">🖥️ System Status</button>
@@ -179,6 +210,70 @@
                 setButtonLoading(submitButton, false);
             }
         });
+
+        // Debug functions
+        async function debugYouTube(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const handle = formData.get('handle');
+            const submitButton = event.target.querySelector('button[type="submit"]');
+
+            try {
+                setButtonLoading(submitButton, true);
+                showResult('debugResult', `🔍 Testing YouTube API for "${handle}"...`, true);
+
+                const response = await fetch(`/admin/debug-youtube?handle=${encodeURIComponent(handle)}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.text();
+                showResult('debugResult', result, true);
+            } catch (error) {
+                console.error('Debug error:', error);
+                showResult('debugResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(submitButton, false);
+            }
+        }
+
+        async function fixHandlesRange(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const startPage = formData.get('startPage');
+            const endPage = formData.get('endPage');
+            const submitButton = event.target.querySelector('button[type="submit"]');
+
+            try {
+                setButtonLoading(submitButton, true);
+                showResult('debugResult', `🔧 Fixing handles for pages ${startPage}-${endPage}...`, true);
+
+                const response = await fetch(`/admin/fix-handles-range?startPage=${startPage}&endPage=${endPage}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.text();
+                showResult('debugResult', result, true);
+            } catch (error) {
+                console.error('Fix range error:', error);
+                showResult('debugResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(submitButton, false);
+            }
+        }
 
         // Discovery functions with improved error handling
         async function seedPopular() {
@@ -364,6 +459,33 @@
                 showResult('snapshotResult', result, true);
             } catch (error) {
                 console.error('Snapshot all error:', error);
+                showResult('snapshotResult', 'Error: ' + error.message, false);
+            } finally {
+                setButtonLoading(button, false);
+            }
+        }
+
+        async function fixUnknownHandles() {
+            const button = event.target;
+            try {
+                setButtonLoading(button, true);
+                showResult('snapshotResult', '🔧 Fixing unknown handles...', true);
+
+                const response = await fetch('/admin/fix-unknown-handles', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.text();
+                showResult('snapshotResult', result, true);
+            } catch (error) {
+                console.error('Fix handles error:', error);
                 showResult('snapshotResult', 'Error: ' + error.message, false);
             } finally {
                 setButtonLoading(button, false);
